@@ -195,6 +195,10 @@ export class AgentService {
 				}
 			}
 
+			if (debugPart?.logMessages) {
+				console.log('[DEBUG] Raw model output:\n', buffer)
+			}
+
 			// Report token usage so the client can show a running cost meter.
 			try {
 				const u = await usage
