@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useValue } from 'tldraw'
 import { useAgent } from '../agent/TldrawAgentAppProvider'
+import { runDemoLesson } from '../demo/runDemoLesson'
 import { isBrowserSttSupported } from '../voice/stt'
 import { getBrowserVoices, isBrowserTtsSupported } from '../voice/tts'
 import { VoiceController } from '../voice/VoiceController'
@@ -24,7 +25,15 @@ export function VoiceBar() {
 		// Expose for quick manual testing from the devtools console.
 		;(window as any).__voice = c
 		;(window as any).__agent = agent
-		return () => c.dispose()
+		// `?demo` replays a scripted lesson so you can try the experience with no API key.
+		let demoTimer: ReturnType<typeof setTimeout> | null = null
+		if (new URLSearchParams(window.location.search).has('demo')) {
+			demoTimer = setTimeout(() => void runDemoLesson(agent, c), 800)
+		}
+		return () => {
+			if (demoTimer) clearTimeout(demoTimer)
+			c.dispose()
+		}
 	}, [agent])
 
 	if (!controller) return null

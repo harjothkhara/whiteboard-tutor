@@ -41,5 +41,25 @@
 		"vite": "^8.0.16",
 		"@types/node": "^22.0.0"
 	},
-	"description": "Voice-driven whiteboard tutor built on the tldraw agent starter kit. Speak a question, hear the answer, watch it drawn."
+	"description": "Voice-driven whiteboard tutor built on the tldraw agent starter kit. Speak a question, hear the answer, watch it drawn.",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/harjothkhara/whiteboard-tutor.git"
+	},
+	"bugs": {
+		"url": "https://github.com/harjothkhara/whiteboard-tutor/issues"
+	},
+	"homepage": "https://github.com/harjothkhara/whiteboard-tutor#readme",
+	"keywords": [
+		"tldraw",
+		"whiteboard",
+		"voice",
+		"tutor",
+		"ai",
+		"claude",
+		"openai",
+		"text-to-speech",
+		"speech-recognition",
+		"cloudflare-workers"
+	]
 }

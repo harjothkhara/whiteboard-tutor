@@ -2,6 +2,10 @@
 
 Talk to an AI tutor and watch it draw the explanation on a [tldraw](https://tldraw.dev) whiteboard while it speaks.
 
+![Whiteboard Tutor explaining a load balancer: boxes, arrows and notes drawn step by step while each sentence is spoken](docs/screenshot.png)
+
+*The `?demo` replay. Same drawing and voice pipeline as a real run, fed by a scripted lesson instead of a model, so you can try the experience with no API key.*
+
 Built on the [tldraw agent starter kit](https://tldraw.dev/starter-kits/agent). The agent already knows how to read and draw on the canvas as compact text. This project adds a voice layer on top and trims the prompt so a long tutoring session stays cheap.
 
 ## Why it is cheap
@@ -34,6 +38,17 @@ A running meter in the chat header shows requests, tokens, cache hit rate, and a
 5. In tutor mode the system prompt tells the model to interleave short spoken sentences with drawing, keep diagrams to a dozen shapes, and lay them out in your viewport.
 
 Click the mic while the tutor is speaking to cut it off. Turn on **Hands-free** in the settings drawer to have the mic reopen automatically after each answer.
+
+## Try it in 60 seconds, no API key
+
+```bash
+git clone https://github.com/harjothkhara/whiteboard-tutor
+cd whiteboard-tutor
+npm install
+npm run dev
+```
+
+Open http://localhost:5173/?demo in Chrome or Safari. A scripted load-balancer lesson plays through the real drawing and voice pipeline: the tutor speaks a sentence, draws, speaks the next one. Add `&delay=300` to speed it up. This is what a real session looks and sounds like; the only difference is where the actions come from.
 
 ## Run it locally
 
