@@ -7,6 +7,8 @@ export interface AgentUsage {
 	inputTokens: number
 	outputTokens: number
 	cachedInputTokens: number
+	/** Tokens written to the prompt cache this turn (Anthropic bills these at 1.25x input). */
+	cacheCreationInputTokens: number
 	reasoningTokens: number
 }
 

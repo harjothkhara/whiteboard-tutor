@@ -118,7 +118,7 @@ export class AgentService {
 		}
 
 		try {
-			const { textStream, usage } = streamText({
+			const { textStream, usage, providerMetadata } = streamText({
 				model,
 				messages,
 				maxOutputTokens: isTutor ? 4096 : 8192,
@@ -202,12 +202,19 @@ export class AgentService {
 			// Report token usage so the client can show a running cost meter.
 			try {
 				const u = await usage
+				const meta = (await providerMetadata) as
+					| { anthropic?: { cacheCreationInputTokens?: number } }
+					| undefined
+				// The AI SDK leaves Anthropic's cache *writes* out of inputTokens, so on the
+				// first turn the meter would show almost nothing. Count them explicitly.
+				const cacheCreationInputTokens = meta?.anthropic?.cacheCreationInputTokens ?? 0
 				yield {
 					usage: {
 						modelName,
-						inputTokens: u.inputTokens ?? 0,
+						inputTokens: (u.inputTokens ?? 0) + cacheCreationInputTokens,
 						outputTokens: u.outputTokens ?? 0,
 						cachedInputTokens: u.cachedInputTokens ?? 0,
+						cacheCreationInputTokens,
 						reasoningTokens: u.reasoningTokens ?? 0,
 					},
 				}

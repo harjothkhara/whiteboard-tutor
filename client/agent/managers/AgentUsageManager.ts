@@ -54,14 +54,19 @@ export class AgentUsageManager extends BaseAgentManager {
 		this.$last.set(usage)
 		const pricing = isValidModelName(usage.modelName) ? getModelPricing(usage.modelName) : null
 		this.$totals.update((t) => {
-			// Uncached input is what the provider bills at the full input rate.
-			const uncachedInput = Math.max(0, usage.inputTokens - usage.cachedInputTokens)
+			// Uncached input is billed at the full input rate, cache reads at the
+			// discounted rate, cache writes at 1.25x the input rate.
+			const uncachedInput = Math.max(
+				0,
+				usage.inputTokens - usage.cachedInputTokens - usage.cacheCreationInputTokens
+			)
 			let estimatedUsd: number | null = t.estimatedUsd
 			if (estimatedUsd !== null) {
 				if (pricing) {
 					estimatedUsd +=
 						(uncachedInput * pricing.inputPerMTok +
 							usage.cachedInputTokens * pricing.cachedInputPerMTok +
+							usage.cacheCreationInputTokens * pricing.inputPerMTok * 1.25 +
 							usage.outputTokens * pricing.outputPerMTok) /
 						1_000_000
 				} else {
