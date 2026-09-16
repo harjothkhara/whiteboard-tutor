@@ -12,6 +12,7 @@ import { Streaming } from '../../shared/types/Streaming'
 import { isUsageEvent } from '../../shared/types/AgentUsage'
 import { TodoItem } from '../../shared/types/TodoItem'
 import { AgentHelpers } from '../AgentHelpers'
+import { apiFetch } from '../voice/api'
 import { getModeNode } from '../modes/AgentModeChart'
 import { AgentModeType } from '../modes/AgentModeDefinitions'
 import { getPromptPartUtilsRecord, PromptPartUtil } from '../parts/PromptPartUtil'
@@ -691,7 +692,7 @@ export class TldrawAgent {
 		prompt: BaseAgentPrompt
 		signal: AbortSignal
 	}): AsyncGenerator<Streaming<AgentAction>> {
-		const res = await fetch('/stream', {
+		const res = await apiFetch('/stream', {
 			method: 'POST',
 			body: JSON.stringify(prompt),
 			headers: {
@@ -700,6 +701,9 @@ export class TldrawAgent {
 			signal,
 		})
 
+		if (!res.ok) {
+			throw new Error(`Request failed (${res.status}): ${await res.text()}`)
+		}
 		if (!res.body) {
 			throw Error('No body in response')
 		}

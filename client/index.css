@@ -225,6 +225,7 @@ body {
 }
 
 .voice-settings select,
+.voice-settings input[type='password'],
 .voice-settings input[type='range'] {
 	flex: 1;
 	min-width: 0;

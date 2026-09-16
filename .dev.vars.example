@@ -10,3 +10,9 @@ ANTHROPIC_API_KEY=
 
 # Only if you want to use Gemini.
 GOOGLE_API_KEY=
+
+# Optional, recommended before deploying publicly. When set, every API call must
+# carry this token; paste the same value into the settings drawer in the app.
+ACCESS_TOKEN=
+# Optional: comma-separated origins allowed to call the API when deployed.
+ALLOWED_ORIGINS=

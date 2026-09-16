@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useValue } from 'tldraw'
 import { useAgent } from '../agent/TldrawAgentAppProvider'
 import { runDemoLesson } from '../demo/runDemoLesson'
+import { getAccessToken, setAccessToken } from '../voice/api'
 import { isBrowserSttSupported } from '../voice/stt'
 import { VoiceController } from '../voice/VoiceController'
 import { voiceSettings } from '../voice/VoiceSettings'
@@ -185,6 +186,17 @@ function VoiceSettingsPanel({ controller }: { controller: VoiceController }) {
 					step={0.05}
 					value={rate}
 					onChange={(e) => voiceSettings.rate.set(Number(e.target.value))}
+				/>
+			</label>
+
+			<label className="voice-settings-row">
+				<span>Access token</span>
+				<input
+					type="password"
+					placeholder="only if the server requires one"
+					defaultValue={getAccessToken()}
+					onChange={(e) => setAccessToken(e.target.value.trim())}
+					autoComplete="off"
 				/>
 			</label>
 

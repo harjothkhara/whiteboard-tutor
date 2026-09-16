@@ -67,6 +67,10 @@ export class AgentService {
 		const modelDefinition = getAgentModelDefinition(modelId)
 		const systemPrompt = buildSystemPrompt(prompt)
 
+		// Tutor mode is latency- and cost-sensitive: short spoken sentences plus a
+		// dozen shapes don't need deep reasoning or a huge output budget.
+		const isTutor = prompt.mode?.modeType === 'tutor'
+
 		// Build messages with provider-specific options
 		const messages: ModelMessage[] = []
 
@@ -117,10 +121,10 @@ export class AgentService {
 			const { textStream, usage } = streamText({
 				model,
 				messages,
-				maxOutputTokens: 8192,
+				maxOutputTokens: isTutor ? 4096 : 8192,
 				// Opus 4.7+ removed `temperature` (and top_p/top_k); sending it returns a 400.
 				...(modelDefinition.supportsTemperature ? { temperature: 0 } : {}),
-				providerOptions: getProviderOptions(modelDefinition),
+				providerOptions: getProviderOptions(modelDefinition, isTutor),
 				onAbort() {
 					console.warn('Stream actions aborted')
 				},
@@ -222,26 +226,31 @@ type StreamTextProviderOptions = NonNullable<Parameters<typeof streamText>[0]['p
  * Map a model definition's reasoning preferences to AI SDK provider options.
  * Only the matching provider's options are set; the SDK ignores the rest.
  */
-function getProviderOptions(definition: AgentModelDefinition): StreamTextProviderOptions {
+function getProviderOptions(
+	definition: AgentModelDefinition,
+	lowEffort = false
+): StreamTextProviderOptions {
 	switch (definition.provider) {
-		case 'anthropic':
+		case 'anthropic': {
+			const effort = lowEffort && definition.effort ? 'low' : definition.effort
 			return {
 				anthropic: {
 					thinking:
 						definition.thinking === 'adaptive' ? { type: 'adaptive' } : { type: 'disabled' },
-					...(definition.effort ? { effort: definition.effort } : {}),
+					...(effort ? { effort } : {}),
 				} satisfies AnthropicProviderOptions,
 			}
+		}
 		case 'google':
 			return {
 				google: {
-					thinkingConfig: { thinkingLevel: definition.thinkingLevel },
+					thinkingConfig: { thinkingLevel: lowEffort ? 'low' : definition.thinkingLevel },
 				} satisfies GoogleGenerativeAIProviderOptions,
 			}
 		case 'openai':
 			return {
 				openai: {
-					reasoningEffort: definition.reasoningEffort,
+					reasoningEffort: lowEffort ? 'low' : definition.reasoningEffort,
 				} satisfies OpenAIResponsesProviderOptions,
 			}
 	}

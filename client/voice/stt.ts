@@ -7,6 +7,8 @@
  *   `/transcribe` route (gpt-4o-mini-transcribe, about $0.003 per minute).
  */
 
+import { apiFetch } from './api'
+
 export interface SttCallbacks {
 	/** Partial text while the user is still talking (browser engine only). */
 	onInterim?(text: string): void
@@ -151,7 +153,7 @@ export class OpenAiStt implements SttEngineInstance {
 			try {
 				const form = new FormData()
 				form.append('audio', blob, 'clip.webm')
-				const res = await fetch('/transcribe', { method: 'POST', body: form })
+				const res = await apiFetch('/transcribe', { method: 'POST', body: form })
 				if (!res.ok) throw new Error(await res.text())
 				const { text } = (await res.json()) as { text: string }
 				if (text?.trim()) this.callbacks.onFinal(text.trim())

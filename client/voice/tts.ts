@@ -9,6 +9,8 @@
  * call fails, the error is reported and nothing is spoken.
  */
 
+import { apiFetch } from './api'
+
 export interface TtsOptions {
 	voice: string
 	rate: number
@@ -18,12 +20,15 @@ interface QueueItem {
 	text: string
 	options: TtsOptions
 	prefetch: Promise<Blob>
+	/** Aborts the in-flight audio fetch so an interrupted sentence isn't billed. */
+	abort: AbortController
 }
 
 export class TtsQueue {
 	private queue: QueueItem[] = []
 	private playing = false
 	private currentAudio: HTMLAudioElement | null = null
+	private current: QueueItem | null = null
 	private listeners = new Set<(speaking: boolean) => void>()
 	private errorListeners = new Set<(message: string) => void>()
 	private cancelled = false
@@ -53,10 +58,11 @@ export class TtsQueue {
 	enqueue(text: string, options: TtsOptions) {
 		const clean = text.trim()
 		if (!clean) return
-		const prefetch = fetchOpenAiAudio(clean, options.voice)
+		const abort = new AbortController()
+		const prefetch = fetchOpenAiAudio(clean, options.voice, abort.signal)
 		// Errors are handled when the item is played.
 		prefetch.catch(() => {})
-		this.queue.push({ text: clean, options, prefetch })
+		this.queue.push({ text: clean, options, prefetch, abort })
 		this.cancelled = false
 		void this.drain()
 	}
@@ -64,7 +70,9 @@ export class TtsQueue {
 	/** Stop speaking immediately and drop everything queued. */
 	cancel() {
 		this.cancelled = true
+		for (const item of this.queue) item.abort.abort()
 		this.queue = []
+		this.current?.abort.abort()
 		if (this.currentAudio) {
 			this.currentAudio.pause()
 			this.currentAudio.src = ''
@@ -79,12 +87,16 @@ export class TtsQueue {
 		try {
 			while (this.queue.length > 0 && !this.cancelled) {
 				const item = this.queue.shift()!
+				this.current = item
 				try {
 					await this.play(item)
 				} catch (e: any) {
+					if (e?.name === 'AbortError' || this.cancelled) continue
 					const message = e?.message ?? 'Text-to-speech failed'
 					console.warn('TTS failed', e)
 					for (const l of this.errorListeners) l(message)
+				} finally {
+					this.current = null
 				}
 			}
 		} finally {
@@ -112,11 +124,12 @@ export class TtsQueue {
 	}
 }
 
-async function fetchOpenAiAudio(text: string, voice: string): Promise<Blob> {
-	const res = await fetch('/tts', {
+async function fetchOpenAiAudio(text: string, voice: string, signal: AbortSignal): Promise<Blob> {
+	const res = await apiFetch('/tts', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ text, voice }),
+		signal,
 	})
 	if (!res.ok) {
 		const detail = await res.text()

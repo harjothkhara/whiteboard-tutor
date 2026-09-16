@@ -131,9 +131,53 @@ var y = (e = {}) => {
 	};
 };
 //#endregion
+//#region worker/auth.ts
+/**
+* Cheap protection for the three routes that spend money.
+*
+* - If `ACCESS_TOKEN` is set, requests must carry `Authorization: Bearer <token>`.
+* - If `ALLOWED_ORIGINS` is set, the request's Origin must be in that list.
+*   Otherwise browsers may only call from the worker's own origin, except in
+*   local dev (localhost) where anything goes.
+*
+* Returns a Response to send back if the request is rejected, or null if OK.
+*/
+function checkAccess(request, env) {
+	const url = new URL(request.url);
+	const isLocalDev = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+	const origin = request.headers.get("Origin");
+	if (origin && !isLocalDev) {
+		let ok = false;
+		if (env.ALLOWED_ORIGINS) ok = env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean).includes(origin);
+		else try {
+			ok = new URL(origin).host === url.host;
+		} catch {
+			ok = false;
+		}
+		if (!ok) return new Response("Origin not allowed", { status: 403 });
+	}
+	if (env.ACCESS_TOKEN) {
+		const header = request.headers.get("Authorization") ?? "";
+		const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+		if (!token || !timingSafeEqual(token, env.ACCESS_TOKEN)) return new Response("Access token required. Add it in the voice settings drawer.", { status: 401 });
+	}
+	return null;
+}
+function timingSafeEqual(a, b) {
+	if (a.length !== b.length) return false;
+	let diff = 0;
+	for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	return diff === 0;
+}
+/** Stable id for the caller's session, used to give each browser tab its own Durable Object. */
+function getSessionId(request) {
+	const id = request.headers.get("x-session-id") ?? "";
+	return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : "anonymous";
+}
+//#endregion
 //#region worker/routes/stream.ts
 async function stream(request, env) {
-	const id = env.AGENT_DURABLE_OBJECT.idFromName("anonymous");
+	const id = env.AGENT_DURABLE_OBJECT.idFromName(getSessionId(request));
 	const response = await env.AGENT_DURABLE_OBJECT.get(id).fetch(request.url, {
 		method: "POST",
 		body: request.body
@@ -143,10 +187,7 @@ async function stream(request, env) {
 		"Cache-Control": "no-cache, no-transform",
 		Connection: "keep-alive",
 		"X-Accel-Buffering": "no",
-		"Transfer-Encoding": "chunked",
-		"Access-Control-Allow-Origin": "*",
-		"Access-Control-Allow-Methods": "POST, OPTIONS",
-		"Access-Control-Allow-Headers": "Content-Type"
+		"Transfer-Encoding": "chunked"
 	} });
 }
 //#endregion
@@ -160,9 +201,12 @@ async function stream(request, env) {
 * model (`gpt-4o-mini-transcribe`, roughly $0.003 per minute).
 */
 async function transcribe(request, env) {
+	const MAX_BYTES = 5242880;
+	if (Number(request.headers.get("Content-Length") ?? 0) > MAX_BYTES) return new Response("Audio too large", { status: 413 });
 	if (!env.OPENAI_API_KEY) return new Response("OPENAI_API_KEY is not set on the worker", { status: 503 });
 	const audio = (await request.formData()).get("audio");
 	if (!(audio instanceof File)) return new Response("Missing audio", { status: 400 });
+	if (audio.size > MAX_BYTES) return new Response("Audio too large", { status: 413 });
 	const form = new FormData();
 	form.append("file", audio, audio.name || "clip.webm");
 	form.append("model", "gpt-4o-mini-transcribe");
@@ -143059,7 +143103,9 @@ You are acting as a patient tutor at a whiteboard. The user speaks their questio
 
 - Explain by drawing. Build a diagram progressively: say one short idea with a \`message\` action, then draw the shapes for that idea, then say the next idea, then draw it. Interleave narration and drawing. Never dump all the narration first and all the drawing afterwards.
 - Keep every \`message\` short and conversational: one or two plain sentences, as if speaking. No markdown, no bullet lists, no code fences, no emoji. Spell out symbols in words (say "arrow" not "->").
-- Start with a one-sentence \`message\` that says what you are about to draw. End with a one-sentence \`message\` that sums up the idea, or asks the user one follow-up question.
+- Start with a one-sentence \`message\` that says what you are about to draw. End with a one-sentence \`message\` that either sums up the idea or, better, asks the user to predict something about the diagram (for example "what do you think happens if Server 2 dies?"). Then stop and wait for their answer.
+- When the user answers a check question, first say whether they were right in one sentence, then draw the correction or the next step. Adapt to what they got wrong instead of restarting the explanation.
+- If the user says they are lost, or asks you to explain it differently, keep the existing shapes and add a simpler analogy next to them rather than redrawing everything.
 - Prefer simple building blocks: labeled rectangles and ellipses for concepts, arrows for flow or relationships, short text labels for names. Use color to group related things. Keep text labels to a few words.
 - Lay the diagram out inside the user's current viewport, left to right or top to bottom in the order you explain it, leaving space between elements. Do not overlap shapes.
 - If the user asks a follow-up, add to or annotate the existing diagram rather than starting over, unless they ask for something new.
@@ -143194,6 +143240,7 @@ var AgentService = class {
 		if (!isValidModelName(modelId)) throw new Error(`Model ${modelId} is not in AGENT_MODEL_DEFINITIONS`);
 		const modelDefinition = getAgentModelDefinition(modelId);
 		const systemPrompt = buildSystemPrompt(prompt);
+		const isTutor = prompt.mode?.modeType === "tutor";
 		const messages = [];
 		if (provider === "anthropic.messages") messages.push({
 			role: "system",
@@ -143222,9 +143269,9 @@ var AgentService = class {
 			const { textStream, usage } = streamText({
 				model,
 				messages,
-				maxOutputTokens: 8192,
+				maxOutputTokens: isTutor ? 4096 : 8192,
 				...modelDefinition.supportsTemperature ? { temperature: 0 } : {},
-				providerOptions: getProviderOptions(modelDefinition),
+				providerOptions: getProviderOptions(modelDefinition, isTutor),
 				onAbort() {
 					console.warn("Stream actions aborted");
 				},
@@ -143294,14 +143341,17 @@ var AgentService = class {
 * Map a model definition's reasoning preferences to AI SDK provider options.
 * Only the matching provider's options are set; the SDK ignores the rest.
 */
-function getProviderOptions(definition) {
+function getProviderOptions(definition, lowEffort = false) {
 	switch (definition.provider) {
-		case "anthropic": return { anthropic: {
-			thinking: definition.thinking === "adaptive" ? { type: "adaptive" } : { type: "disabled" },
-			...definition.effort ? { effort: definition.effort } : {}
-		} };
-		case "google": return { google: { thinkingConfig: { thinkingLevel: definition.thinkingLevel } } };
-		case "openai": return { openai: { reasoningEffort: definition.reasoningEffort } };
+		case "anthropic": {
+			const effort = lowEffort && definition.effort ? "low" : definition.effort;
+			return { anthropic: {
+				thinking: definition.thinking === "adaptive" ? { type: "adaptive" } : { type: "disabled" },
+				...effort ? { effort } : {}
+			} };
+		}
+		case "google": return { google: { thinkingConfig: { thinkingLevel: lowEffort ? "low" : definition.thinkingLevel } } };
+		case "openai": return { openai: { reasoningEffort: lowEffort ? "low" : definition.reasoningEffort } };
 	}
 }
 //#endregion
@@ -143356,18 +143406,23 @@ var AgentDurableObject = class extends DurableObject {
 			"Cache-Control": "no-cache, no-transform",
 			Connection: "keep-alive",
 			"X-Accel-Buffering": "no",
-			"Transfer-Encoding": "chunked",
-			"Access-Control-Allow-Origin": "*",
-			"Access-Control-Allow-Methods": "POST, OPTIONS",
-			"Access-Control-Allow-Headers": "Content-Type"
+			"Transfer-Encoding": "chunked"
 		} });
 	}
 };
 //#endregion
 //#region worker/worker.ts
-var { preflight, corsify } = y({ origin: "*" });
+var { preflight, corsify } = y({
+	origin: (origin) => origin,
+	allowHeaders: [
+		"Content-Type",
+		"Authorization",
+		"x-session-id"
+	],
+	allowMethods: ["POST", "OPTIONS"]
+});
 var router = c({
-	before: [preflight],
+	before: [preflight, (request, env) => checkAccess(request, env) ?? void 0],
 	finally: [corsify],
 	catch: (e) => {
 		console.error(e);

@@ -51,7 +51,7 @@ Open http://localhost:5173, click the mic (or hold **V**), and ask something lik
 
 There is no realtime voice API in the loop. That is the expensive part of most voice demos (roughly $0.06 to $0.11 per minute). Here you pay nothing while you talk and about a cent and a half per minute while the tutor talks.
 
-Tutor mode removes the canvas **screenshot** from every request. The model still knows every shape in your viewport, but as a few lines of text instead of an image. It also drops actions a tutor never uses, so the schema in the system prompt is shorter. A typical request from the browser is about 2 KB.
+Tutor mode removes the canvas **screenshot** from every request. The model still knows every shape in your viewport, but as a few lines of text instead of an image. It also drops actions a tutor never uses, so the schema in the system prompt is shorter, and it runs the model at low reasoning effort with a 4k output cap. The browser sends about 2 KB per turn; the worker adds the system prompt and schema on top (a few thousand tokens, cached after the first turn). Chat history is resent every turn and is not yet compacted, so long lessons grow. Use the meter to watch it.
 
 The meter in the chat header shows requests, tokens, cache hit rate, and an estimated spend for the Claude models.
 
@@ -65,13 +65,23 @@ There is no browser-voice fallback on purpose. If the OpenAI voice call fails, t
 
 ## Deploy
 
-The backend is a Cloudflare Worker with a Durable Object. Set the keys as secrets and deploy:
+The backend is a Cloudflare Worker with a Durable Object (one per browser session). Set the keys as secrets and deploy:
 
 ```bash
 npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put ACCESS_TOKEN      # recommended, see below
 npm run deploy
 ```
+
+### Lock it down before sharing a URL
+
+The three API routes (`/stream`, `/tts`, `/transcribe`) spend your credits. Two switches protect them:
+
+- **`ACCESS_TOKEN`**: when set, every request must send it as a bearer token. Paste the same value into the settings drawer (gear icon, "Access token") in each browser you use. Pick something long and random.
+- **`ALLOWED_ORIGINS`**: comma-separated list of origins allowed to call the API. Defaults to the worker's own origin. Local dev on localhost is always allowed.
+
+Uploads to `/transcribe` are capped at 5 MB and `/tts` text at 4,000 characters. There is no per-user rate limit yet, so the token is what stands between a leaked URL and your bill.
 
 ## Project layout
 

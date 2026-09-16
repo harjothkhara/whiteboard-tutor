@@ -10,6 +10,11 @@ import { Environment } from '../environment'
  * model (`gpt-4o-mini-transcribe`, roughly $0.003 per minute).
  */
 export async function transcribe(request: IRequest, env: Environment) {
+	// Cap uploads: a minute of webm/opus speech is well under 1 MB.
+	const MAX_BYTES = 5 * 1024 * 1024
+	const declared = Number(request.headers.get('Content-Length') ?? 0)
+	if (declared > MAX_BYTES) return new Response('Audio too large', { status: 413 })
+
 	if (!env.OPENAI_API_KEY) {
 		return new Response('OPENAI_API_KEY is not set on the worker', { status: 503 })
 	}
@@ -17,6 +22,7 @@ export async function transcribe(request: IRequest, env: Environment) {
 	const incoming = await request.formData()
 	const audio = incoming.get('audio')
 	if (!(audio instanceof File)) return new Response('Missing audio', { status: 400 })
+	if (audio.size > MAX_BYTES) return new Response('Audio too large', { status: 413 })
 
 	const form = new FormData()
 	form.append('file', audio, audio.name || 'clip.webm')
