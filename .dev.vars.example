@@ -1,10 +1,12 @@
-# Copy to .dev.vars for local dev (wrangler reads it). Set the same names as
-# secrets on Cloudflare for production: `npx wrangler secret put ANTHROPIC_API_KEY`
-#
-# You only need the keys for the providers you actually use.
-# The default model is claude-sonnet-5, so ANTHROPIC_API_KEY is the one to set first.
-ANTHROPIC_API_KEY=
-# Needed for the gpt-5.6-* models AND for the optional paid voice upgrades
-# (gpt-4o-mini-tts / gpt-4o-mini-transcribe). Not needed for browser voice.
+# Copy this file to .dev.vars and paste your keys. wrangler reads it in local dev.
+# For production set the same names as secrets: npx wrangler secret put OPENAI_API_KEY
+
+# Required: the tutor's voice (gpt-4o-mini-tts). Also unlocks the gpt-5.6-* models
+# and the optional OpenAI speech recognition.
 OPENAI_API_KEY=
+
+# The default model is claude-sonnet-5, so you want this one too.
+ANTHROPIC_API_KEY=
+
+# Only if you want to use Gemini.
 GOOGLE_API_KEY=

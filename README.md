@@ -1,97 +1,105 @@
 # Whiteboard Tutor
 
-Talk to an AI tutor and watch it draw the explanation on a [tldraw](https://tldraw.dev) whiteboard while it speaks.
+Ask a question out loud. An AI tutor answers in a natural voice while it draws the explanation on a [tldraw](https://tldraw.dev) whiteboard, one idea at a time.
 
 ![Whiteboard Tutor explaining a load balancer: boxes, arrows and notes drawn step by step while each sentence is spoken](docs/screenshot.png)
 
-*Screenshot from the `?demo` replay (a scripted lesson through the real drawing pipeline).*
+Built on the [tldraw agent starter kit](https://tldraw.dev/starter-kits/agent), which already lets a model read and draw on the canvas. This project adds voice in and out, a tutoring mode that keeps the prompt small, and a cost meter.
 
-Built on the [tldraw agent starter kit](https://tldraw.dev/starter-kits/agent). The agent already knows how to read and draw on the canvas as compact text. This project adds a voice layer on top and trims the prompt so a long tutoring session stays cheap.
+## What you need
 
-## Why it is cheap
+Two API keys, both in a `.dev.vars` file at the project root:
 
-| Piece | Default | Cost |
-| --- | --- | --- |
-| Ears (speech to text) | Browser Web Speech API | free |
-| Voice (text to speech) | OpenAI `gpt-4o-mini-tts`, voice `marin` | about $0.015 per minute spoken |
-| Brain (the model) | `claude-sonnet-5` in **tutor mode** | tokens only |
+| Key | Used for |
+| --- | --- |
+| `OPENAI_API_KEY` | The tutor's voice (`gpt-4o-mini-tts`). Required. Also unlocks the `gpt-5.6-*` models. |
+| `ANTHROPIC_API_KEY` | The default model, `claude-sonnet-5`. Swap for `GOOGLE_API_KEY` if you prefer Gemini. |
 
-Tutor mode is a new agent mode that removes the canvas **screenshot** from every request. The model still sees every shape in your viewport, but as a few lines of text instead of an image. It also drops actions a tutor never uses, so the JSON schema in the system prompt is smaller. The system prompt is sent with an Anthropic cache breakpoint, so after the first turn most of it is billed at the cached rate.
+A browser with built-in speech recognition: Chrome, Edge or Safari. Firefox works if you switch the ears to OpenAI in the settings drawer.
 
-The voice needs `OPENAI_API_KEY` on the worker. There is no browser-voice fallback on purpose (it sounds bad). If the call fails you see an error in the voice bar and nothing is spoken.
-
-Nothing about voice touches the model prompt. Speech adds zero LLM tokens.
-
-There is no realtime voice API in the loop. The OpenAI Realtime API costs roughly $0.06 to $0.11 per minute of conversation; this design costs about a cent and a half per minute of speech, and nothing while you talk. Options in the settings drawer:
-
-- `gpt-4o-mini-transcribe` for ears, about $0.003 per minute (default is the free browser recognition)
-- any of OpenAI's voices for the tutor (marin and cedar are the best)
-
-A running meter in the chat header shows requests, tokens, cache hit rate, and an estimated spend for the Claude models.
-
-## How it works
-
-1. You click the mic (or hold **V**) and ask a question.
-2. The transcript is sent to the agent exactly like a typed chat message.
-3. The model replies with a stream of actions: `message` (say this), `create` (draw this), `label`, `move`, and so on.
-4. Every completed `message` action is queued for text to speech. Drawing actions keep landing on the canvas while the sentence plays, so it feels like a teacher talking while they draw.
-5. In tutor mode the system prompt tells the model to interleave short spoken sentences with drawing, keep diagrams to a dozen shapes, and lay them out in your viewport.
-
-Click the mic while the tutor is speaking to cut it off. Turn on **Hands-free** in the settings drawer to have the mic reopen automatically after each answer.
-
-## Run it locally
+## Run it
 
 ```bash
+git clone https://github.com/harjothkhara/whiteboard-tutor
+cd whiteboard-tutor
 npm install
-cp .dev.vars.example .dev.vars   # then paste your key(s)
+cp .dev.vars.example .dev.vars   # paste your keys into this file
 npm run dev
 ```
 
-Open http://localhost:5173 in Chrome, Edge or Safari (the free browser speech recognition is not in Firefox; pick the OpenAI ears there).
+Open http://localhost:5173, click the mic (or hold **V**), and ask something like "explain how a load balancer works."
 
-You need `OPENAI_API_KEY` for the voice, plus a key for whichever model you pick:
+- Click the mic while the tutor is talking to cut it off.
+- Pick the model from the dropdown under the chat box.
+- The gear icon in the voice bar opens settings: voice (marin, cedar, and the rest of OpenAI's voices), speed, ears, hands-free mode, and tutor mode.
+- **Hands-free** reopens the mic automatically after each answer, so you can have a back-and-forth without clicking.
 
-- `ANTHROPIC_API_KEY` for the Claude models (default)
-- `OPENAI_API_KEY` for the `gpt-5.6-*` models and for the optional paid voice upgrades
-- `GOOGLE_API_KEY` for Gemini
+## How it works
 
-Pick the model from the dropdown under the chat box. `claude-haiku-4-5` is the cheapest option that still draws reasonably well.
+1. Your speech becomes text in the browser and is sent to the agent like a typed message.
+2. The model streams back actions: `message` (say this), `create` (draw this), `label`, `move`, and so on.
+3. Each finished `message` is sent to OpenAI text-to-speech and played. Drawing actions keep landing on the canvas while the sentence plays.
+4. In tutor mode the system prompt tells the model to say one short idea, draw it, say the next, and to keep diagrams to about a dozen shapes inside your viewport.
+
+## What it costs
+
+| Piece | What runs | Cost |
+| --- | --- | --- |
+| Ears | Browser speech recognition | free |
+| Voice | OpenAI `gpt-4o-mini-tts` | about $0.015 per minute the tutor talks |
+| Brain | `claude-sonnet-5` in tutor mode | tokens only, mostly cached after the first turn |
+
+There is no realtime voice API in the loop. That is the expensive part of most voice demos (roughly $0.06 to $0.11 per minute). Here you pay nothing while you talk and about a cent and a half per minute while the tutor talks.
+
+Tutor mode removes the canvas **screenshot** from every request. The model still knows every shape in your viewport, but as a few lines of text instead of an image. It also drops actions a tutor never uses, so the schema in the system prompt is shorter. A typical request from the browser is about 2 KB.
+
+The meter in the chat header shows requests, tokens, cache hit rate, and an estimated spend for the Claude models.
+
+Ways to spend less:
+
+- Switch to `claude-haiku-4-5` for routine explanations.
+- Start a new chat (the **+** button) when you change topic. History is part of every request.
+- Keep the viewport tight. Shapes outside it are summarized, not listed.
+
+There is no browser-voice fallback on purpose. If the OpenAI voice call fails, the voice bar shows an error and nothing is spoken.
 
 ## Deploy
 
-The worker runs on Cloudflare (Workers + a Durable Object). Set the keys as secrets and deploy:
+The backend is a Cloudflare Worker with a Durable Object. Set the keys as secrets and deploy:
 
 ```bash
+npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put ANTHROPIC_API_KEY
 npm run deploy
 ```
 
 ## Project layout
 
+Files added on top of the starter kit:
+
 ```
-client/voice/VoiceSettings.ts     settings atoms (persisted to localStorage)
-client/voice/stt.ts               browser + OpenAI speech-to-text
-client/voice/tts.ts               browser + OpenAI text-to-speech, sequential queue
-client/voice/VoiceController.ts   mic -> agent, chat history -> speaker, hands-free loop
-client/components/VoiceBar.tsx    mic button, status, settings drawer
-client/components/UsageMeter.tsx  tokens + cost meter
+client/voice/VoiceSettings.ts            settings, saved in localStorage
+client/voice/stt.ts                      browser and OpenAI speech-to-text
+client/voice/tts.ts                      OpenAI text-to-speech queue
+client/voice/VoiceController.ts          mic -> agent, chat history -> speaker, hands-free loop
+client/components/VoiceBar.tsx           mic button, status line, settings drawer
+client/components/UsageMeter.tsx         tokens and cost meter
 client/agent/managers/AgentUsageManager.ts
-client/modes/AgentModeDefinitions.ts   the `tutor` mode (no screenshot)
-worker/prompt/sections/tutor-section.ts  tutoring instructions
-worker/routes/tts.ts              proxy to gpt-4o-mini-tts
-worker/routes/transcribe.ts       proxy to gpt-4o-mini-transcribe
-worker/do/AgentService.ts         emits a final `{ usage }` event per request
+client/modes/AgentModeDefinitions.ts     the `tutor` mode (no screenshot)
+worker/prompt/sections/tutor-section.ts  how the tutor is told to teach
+worker/routes/tts.ts                     proxy to gpt-4o-mini-tts
+worker/routes/transcribe.ts              proxy to gpt-4o-mini-transcribe
+worker/do/AgentService.ts                emits a `{ usage }` event after each request
 ```
 
-Everything else is the unmodified starter kit. Its own README (parts, actions, modes, custom shapes) lives at https://tldraw.dev/starter-kits/agent.
+Everything else is the starter kit as shipped. Its README covers parts, actions, modes and custom shapes: https://tldraw.dev/starter-kits/agent.
 
-## Tuning cost further
+To change how the tutor teaches, edit `worker/prompt/sections/tutor-section.ts`. To change what it can see or do, edit the `tutor` entry in `client/modes/AgentModeDefinitions.ts`.
 
-- Switch the model to `claude-haiku-4-5` for routine explanations.
-- Keep the viewport tight. The agent is only told about shapes inside it in detail.
-- Start a new chat (the **+** button) when you change topic. Chat history is part of every request.
-- Turn tutor mode off in the settings drawer only when you need the model to see pixels (for example to critique a drawing you made).
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Ideas that would help most: a step-by-step "teach mode" with clickable lesson cards, and an opt-in realtime voice mode for people who want a phone-call feel.
 
 ## License
 
-MIT. The starter kit this is built on is copyright tldraw GB Ltd., also MIT, see [LICENSE.md](LICENSE.md). tldraw itself is used under the [tldraw license](https://tldraw.dev/legal/tldraw-license); a watermark is shown unless you have a license.
+MIT, see [LICENSE.md](LICENSE.md). The starter kit is copyright tldraw Inc., also MIT. tldraw itself is used under the [tldraw license](https://tldraw.dev/legal/tldraw-license); a watermark is shown unless you have a license.
