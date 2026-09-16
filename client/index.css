@@ -88,6 +88,184 @@ body {
 	white-space: nowrap;
 }
 
+/* Boards drawer */
+
+.boards-toggle {
+	appearance: none;
+	border: 0;
+	background: none;
+	color: var(--tl-color-text-1);
+	font-size: 16px;
+	cursor: pointer;
+	border-radius: 4px;
+	width: 28px;
+	height: 28px;
+}
+
+.boards-toggle:hover {
+	background: var(--tl-color-muted-2);
+}
+
+.chat-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 140px;
+}
+
+.boards-backdrop {
+	position: absolute;
+	inset: 0;
+	z-index: 20;
+	background: rgba(0, 0, 0, 0.35);
+}
+
+.chat-panel {
+	position: relative;
+}
+
+.boards-drawer {
+	position: absolute;
+	top: 0;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	max-width: 350px;
+	display: flex;
+	flex-direction: column;
+	background: var(--tl-color-panel);
+	border-right: 1px solid var(--tl-color-low);
+	box-shadow: 4px 0 16px rgba(0, 0, 0, 0.3);
+}
+
+.boards-drawer-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--tl-color-low);
+	font-size: 13px;
+}
+
+.boards-drawer-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.boards-drawer-actions button,
+.boards-mini {
+	appearance: none;
+	border: 1px solid var(--tl-color-low);
+	background: var(--tl-color-muted-2);
+	color: var(--tl-color-text-1);
+	border-radius: 4px;
+	padding: 3px 8px;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.boards-mini {
+	padding: 1px 6px;
+	opacity: 0.6;
+}
+
+.boards-mini:hover,
+.boards-drawer-actions button:hover {
+	opacity: 1;
+	background: var(--tl-color-muted-1);
+}
+
+.boards-close {
+	font-size: 14px !important;
+}
+
+.boards-drawer-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 8px;
+}
+
+.boards-folder {
+	margin-bottom: 6px;
+}
+
+.boards-folder-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 6px;
+	font-weight: 700;
+}
+
+.boards-folder-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.boards-folder .boards-row {
+	margin-left: 14px;
+}
+
+.boards-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 5px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.boards-row:hover {
+	background: var(--tl-color-muted-2);
+}
+
+.boards-row.active {
+	background: var(--tl-color-selected);
+	color: white;
+}
+
+.boards-row-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.boards-prefix {
+	opacity: 0.6;
+	font-size: 10px;
+}
+
+.boards-row-name.editing,
+.boards-folder-name.editing {
+	font: inherit;
+	background: var(--tl-color-panel);
+	color: var(--tl-color-text-1);
+	border: 1px solid var(--tl-color-primary);
+	border-radius: 3px;
+	padding: 1px 4px;
+}
+
+.boards-move {
+	max-width: 90px;
+	font-size: 10px;
+	background: var(--tl-color-muted-2);
+	color: var(--tl-color-text-1);
+	border: 1px solid var(--tl-color-low);
+	border-radius: 3px;
+	opacity: 0.7;
+}
+
+.boards-drawer-hint {
+	padding: 6px 12px;
+	font-size: 10px;
+	color: var(--tl-color-text-2);
+	border-top: 1px solid var(--tl-color-low);
+}
+
 /* Usage meter */
 
 .usage-meter {

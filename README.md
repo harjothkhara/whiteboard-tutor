@@ -34,6 +34,15 @@ Open http://localhost:5173, click the mic (or hold **V**), and ask something lik
 - The gear icon in the voice bar opens settings: voice (marin, cedar, and the rest of OpenAI's voices), speed, ears, hands-free mode, and tutor mode.
 - **Hands-free** reopens the mic automatically after each answer, so you can have a back-and-forth without clicking.
 
+## Boards and folders
+
+The ☰ button in the chat header opens the boards drawer. Every board has its own canvas and its own chat history, saved in your browser.
+
+- **+ Board** makes a new empty board and opens it. **+ Folder** makes a folder.
+- Double-click a board or folder name to rename it.
+- Use the small dropdown on a board to move it into a folder, for example a folder called "Algorithms" holding "Dijkstra" and "Linked lists".
+- The trash icon deletes a board and its drawing and chat. The last board can't be deleted.
+
 ## How it works
 
 1. Your speech becomes text in the browser and is sent to the agent like a typed message.
@@ -93,6 +102,8 @@ client/voice/stt.ts                      browser and OpenAI speech-to-text
 client/voice/tts.ts                      OpenAI text-to-speech queue
 client/voice/VoiceController.ts          mic -> agent, chat history -> speaker, hands-free loop
 client/components/VoiceBar.tsx           mic button, status line, settings drawer
+client/boards/BoardStore.ts              named boards and folders, per-board persistence keys
+client/components/BoardsDrawer.tsx       the boards drawer (create, rename, move, delete)
 client/components/UsageMeter.tsx         tokens and cost meter
 client/agent/managers/AgentUsageManager.ts
 client/modes/AgentModeDefinitions.ts     the `tutor` mode (no screenshot)

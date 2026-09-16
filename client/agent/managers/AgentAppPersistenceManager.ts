@@ -1,4 +1,5 @@
 import { react } from 'tldraw'
+import { getActiveBoard, LEGACY_BOARD_KEY } from '../../boards/BoardStore'
 import { PersistedAgentState, TldrawAgent } from '../TldrawAgent'
 import { BaseAgentAppManager } from './BaseAgentAppManager'
 
@@ -23,6 +24,13 @@ export interface PersistedAppState {
  * to handle the actual state serialization/deserialization.
  */
 export class AgentAppPersistenceManager extends BaseAgentAppManager {
+	/**
+	 * The board this app instance belongs to. Captured once at mount so that a
+	 * board switch (which changes the active board before the old editor
+	 * unmounts) can never save the old board's chat into the new board's slot.
+	 */
+	private boardKey = getActiveBoard().persistenceKey
+
 	/**
 	 * Whether we're currently loading state to prevent premature saves.
 	 */
@@ -207,8 +215,12 @@ export class AgentAppPersistenceManager extends BaseAgentAppManager {
 		if (!localStorage) return null
 
 		try {
-			const fullKey = `${STORAGE_PREFIX}:${key}`
-			const stored = localStorage.getItem(fullKey)
+			const fullKey = `${STORAGE_PREFIX}:${this.boardKey}:${key}`
+			// Before boards existed, state lived under the un-scoped key. Only the
+			// first board (which kept the legacy persistence key) may read it.
+			const legacy =
+				this.boardKey === LEGACY_BOARD_KEY ? localStorage.getItem(`${STORAGE_PREFIX}:${key}`) : null
+			const stored = localStorage.getItem(fullKey) ?? legacy
 			if (stored) {
 				return JSON.parse(stored) as T
 			}
@@ -227,7 +239,7 @@ export class AgentAppPersistenceManager extends BaseAgentAppManager {
 		if (!localStorage) return
 
 		try {
-			const fullKey = `${STORAGE_PREFIX}:${key}`
+			const fullKey = `${STORAGE_PREFIX}:${this.boardKey}:${key}`
 			localStorage.setItem(fullKey, JSON.stringify(value))
 		} catch {
 			console.warn(`Couldn't save ${key} to localStorage`)

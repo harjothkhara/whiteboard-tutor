@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useValue } from 'tldraw'
+import { $activeBoardId, getActiveBoard } from './boards/BoardStore'
 import {
 	DefaultSizeStyle,
 	ErrorBoundary,
@@ -53,6 +55,8 @@ const overrides: TLUiOverrides = {
 
 function App() {
 	const [app, setApp] = useState<TldrawAgentApp | null>(null)
+	const activeBoardId = useValue('activeBoardId', () => $activeBoardId.get(), [])
+	const persistenceKey = useValue('persistenceKey', () => getActiveBoard().persistenceKey, [])
 
 	const handleUnmount = useCallback(() => {
 		setApp(null)
@@ -75,7 +79,8 @@ function App() {
 			<div className="tldraw-agent-container">
 				<div className="tldraw-canvas">
 					<Tldraw
-						persistenceKey="tldraw-agent-demo"
+						key={activeBoardId}
+						persistenceKey={persistenceKey}
 						tools={tools}
 						overlayUtils={overlayUtils}
 						overrides={overrides}

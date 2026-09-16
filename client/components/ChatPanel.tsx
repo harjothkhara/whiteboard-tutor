@@ -1,4 +1,7 @@
-import { FormEventHandler, useCallback, useRef } from 'react'
+import { FormEventHandler, useCallback, useRef, useState } from 'react'
+import { useValue } from 'tldraw'
+import { getActiveBoard } from '../boards/BoardStore'
+import { BoardsDrawer } from './BoardsDrawer'
 import { useAgent } from '../agent/TldrawAgentAppProvider'
 import { ChatHistory } from './chat-history/ChatHistory'
 import { ChatInput } from './ChatInput'
@@ -43,15 +46,33 @@ export function ChatPanel() {
 		agent.reset()
 	}, [agent])
 
+	const [showBoards, setShowBoards] = useState(false)
+	const boardName = useValue('boardName', () => getActiveBoard().name, [])
+
 	return (
 		<div className="chat-panel tl-theme__dark">
 			<div className="chat-header">
-				<span className="chat-title">Whiteboard Tutor</span>
+				<button
+					className="boards-toggle"
+					onClick={() => setShowBoards((v) => !v)}
+					title="Boards"
+					aria-label="Open boards"
+				>
+					☰
+				</button>
+				<span className="chat-title" title={boardName}>
+					{boardName}
+				</span>
 				<UsageMeter />
-				<button className="new-chat-button" onClick={handleNewChat} title="New chat">
+				<button className="new-chat-button" onClick={handleNewChat} title="New chat (clears this board's chat)">
 					+
 				</button>
 			</div>
+			{showBoards && (
+				<div className="boards-backdrop" onClick={() => setShowBoards(false)}>
+					<BoardsDrawer onClose={() => setShowBoards(false)} />
+				</div>
+			)}
 			<ChatHistory agent={agent} />
 			<div className="chat-input-container">
 				<TodoList agent={agent} />
