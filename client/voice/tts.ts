@@ -132,8 +132,19 @@ async function fetchOpenAiAudio(text: string, voice: string, signal: AbortSignal
 		signal,
 	})
 	if (!res.ok) {
-		const detail = await res.text()
-		throw new Error(res.status === 503 ? 'Voice needs OPENAI_API_KEY in .dev.vars' : detail)
+		throw new Error(friendlyTtsError(res.status, await res.text()))
 	}
 	return res.blob()
+}
+
+/** Turn the raw OpenAI error into one line a person can act on. */
+function friendlyTtsError(status: number, body: string): string {
+	if (status === 503) return 'No voice: add OPENAI_API_KEY to .dev.vars.'
+	if (status === 401) return 'No voice: the server wants an access token (gear icon).'
+	if (/insufficient_quota|credit_balance_exhausted/.test(body)) {
+		return 'No voice: your OpenAI API account has no credit. Top up at platform.openai.com/settings/organization/billing.'
+	}
+	if (/invalid_api_key|Incorrect API key/.test(body)) return 'No voice: the OpenAI key is invalid.'
+	if (status === 429) return 'No voice: OpenAI rate limit hit, try again in a moment.'
+	return `No voice: ${body.slice(0, 160)}`
 }
