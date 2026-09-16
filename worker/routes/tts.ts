@@ -27,7 +27,7 @@ export async function tts(request: IRequest, env: Environment) {
 		},
 		body: JSON.stringify({
 			model: 'gpt-4o-mini-tts',
-			voice: body.voice ?? 'alloy',
+			voice: body.voice ?? 'marin',
 			input: text,
 			instructions:
 				body.instructions ?? 'Speak like a friendly, patient tutor explaining at a whiteboard.',

@@ -36,7 +36,7 @@ const DEFAULTS: VoiceSettingsValues = {
 	sttEngine: 'browser',
 	ttsEngine: 'browser',
 	browserVoice: '',
-	openaiVoice: 'alloy',
+	openaiVoice: 'marin',
 	rate: 1.05,
 	handsFree: false,
 }

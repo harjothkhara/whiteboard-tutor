@@ -6,7 +6,7 @@ import { getBrowserVoices, isBrowserTtsSupported } from '../voice/tts'
 import { VoiceController } from '../voice/VoiceController'
 import { voiceSettings } from '../voice/VoiceSettings'
 
-const OPENAI_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'sage', 'shimmer', 'verse']
+const OPENAI_VOICES = ['marin', 'cedar', 'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse']
 
 /**
  * The voice controls that sit above the chat input: a big mic button, a
