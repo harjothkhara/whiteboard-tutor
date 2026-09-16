@@ -6,9 +6,10 @@ export type TtsEngine = 'browser' | 'openai'
 /**
  * User-facing voice settings. Persisted to localStorage so they survive reloads.
  *
- * Defaults are the free options: the browser's own speech recognition and
- * speech synthesis. The OpenAI options are opt-in upgrades that cost money
- * (roughly $0.003/min to listen and $0.015/min to speak).
+ * Defaults: the browser's own (free) speech recognition for ears, and OpenAI's
+ * gpt-4o-mini-tts (about $0.015/min, needs OPENAI_API_KEY on the worker) for
+ * the voice. If the OpenAI call fails the queue falls back to the browser voice.
+ * OpenAI ears (about $0.003/min) are opt-in.
  */
 export interface VoiceSettingsValues {
 	/** Use the lean, voice-first `tutor` agent mode (no screenshots). */
@@ -34,7 +35,7 @@ const DEFAULTS: VoiceSettingsValues = {
 	tutorMode: true,
 	speak: true,
 	sttEngine: 'browser',
-	ttsEngine: 'browser',
+	ttsEngine: 'openai',
 	browserVoice: '',
 	openaiVoice: 'marin',
 	rate: 1.05,

@@ -9,17 +9,19 @@ Built on the [tldraw agent starter kit](https://tldraw.dev/starter-kits/agent). 
 | Piece | Default | Cost |
 | --- | --- | --- |
 | Ears (speech to text) | Browser Web Speech API | free |
-| Voice (text to speech) | Browser `speechSynthesis` | free |
+| Voice (text to speech) | OpenAI `gpt-4o-mini-tts`, voice `marin` | about $0.015 per minute spoken |
 | Brain (the model) | `claude-sonnet-5` in **tutor mode** | tokens only |
 
 Tutor mode is a new agent mode that removes the canvas **screenshot** from every request. The model still sees every shape in your viewport, but as a few lines of text instead of an image. It also drops actions a tutor never uses, so the JSON schema in the system prompt is smaller. The system prompt is sent with an Anthropic cache breakpoint, so after the first turn most of it is billed at the cached rate.
 
+The voice needs `OPENAI_API_KEY` on the worker. Without it (or if the call fails) the app falls back to the browser's free built-in voice automatically. You can also pick the free browser voice in the settings drawer.
+
 Nothing about voice touches the model prompt. Speech adds zero LLM tokens.
 
-There is no realtime voice API in the loop. The OpenAI Realtime API costs roughly $0.06 to $0.11 per minute of conversation; this design costs nothing per minute by default. If you want nicer audio you can switch either side to OpenAI in the settings drawer:
+There is no realtime voice API in the loop. The OpenAI Realtime API costs roughly $0.06 to $0.11 per minute of conversation; this design costs about a cent and a half per minute of speech, and nothing while you talk. Options in the settings drawer:
 
-- `gpt-4o-mini-transcribe` for ears, about $0.003 per minute
-- `gpt-4o-mini-tts` for voice, about $0.015 per minute
+- `gpt-4o-mini-transcribe` for ears, about $0.003 per minute (default is the free browser recognition)
+- browser voice instead of `gpt-4o-mini-tts` if you want speech to be free too
 
 A running meter in the chat header shows requests, tokens, cache hit rate, and an estimated spend for the Claude models.
 
