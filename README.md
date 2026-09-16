@@ -4,7 +4,7 @@ Talk to an AI tutor and watch it draw the explanation on a [tldraw](https://tldr
 
 ![Whiteboard Tutor explaining a load balancer: boxes, arrows and notes drawn step by step while each sentence is spoken](docs/screenshot.png)
 
-*The `?demo` replay. Same drawing and voice pipeline as a real run, fed by a scripted lesson instead of a model, so you can try the experience with no API key.*
+*Screenshot from the `?demo` replay (a scripted lesson through the real drawing pipeline).*
 
 Built on the [tldraw agent starter kit](https://tldraw.dev/starter-kits/agent). The agent already knows how to read and draw on the canvas as compact text. This project adds a voice layer on top and trims the prompt so a long tutoring session stays cheap.
 
@@ -18,14 +18,14 @@ Built on the [tldraw agent starter kit](https://tldraw.dev/starter-kits/agent). 
 
 Tutor mode is a new agent mode that removes the canvas **screenshot** from every request. The model still sees every shape in your viewport, but as a few lines of text instead of an image. It also drops actions a tutor never uses, so the JSON schema in the system prompt is smaller. The system prompt is sent with an Anthropic cache breakpoint, so after the first turn most of it is billed at the cached rate.
 
-The voice needs `OPENAI_API_KEY` on the worker. Without it (or if the call fails) the app falls back to the browser's free built-in voice automatically. You can also pick the free browser voice in the settings drawer.
+The voice needs `OPENAI_API_KEY` on the worker. There is no browser-voice fallback on purpose (it sounds bad). If the call fails you see an error in the voice bar and nothing is spoken.
 
 Nothing about voice touches the model prompt. Speech adds zero LLM tokens.
 
 There is no realtime voice API in the loop. The OpenAI Realtime API costs roughly $0.06 to $0.11 per minute of conversation; this design costs about a cent and a half per minute of speech, and nothing while you talk. Options in the settings drawer:
 
 - `gpt-4o-mini-transcribe` for ears, about $0.003 per minute (default is the free browser recognition)
-- browser voice instead of `gpt-4o-mini-tts` if you want speech to be free too
+- any of OpenAI's voices for the tutor (marin and cedar are the best)
 
 A running meter in the chat header shows requests, tokens, cache hit rate, and an estimated spend for the Claude models.
 
@@ -39,17 +39,6 @@ A running meter in the chat header shows requests, tokens, cache hit rate, and a
 
 Click the mic while the tutor is speaking to cut it off. Turn on **Hands-free** in the settings drawer to have the mic reopen automatically after each answer.
 
-## Try it in 60 seconds, no API key
-
-```bash
-git clone https://github.com/harjothkhara/whiteboard-tutor
-cd whiteboard-tutor
-npm install
-npm run dev
-```
-
-Open http://localhost:5173/?demo in Chrome or Safari. A scripted load-balancer lesson plays through the real drawing and voice pipeline: the tutor speaks a sentence, draws, speaks the next one. Add `&delay=300` to speed it up. This is what a real session looks and sounds like; the only difference is where the actions come from.
-
 ## Run it locally
 
 ```bash
@@ -60,7 +49,7 @@ npm run dev
 
 Open http://localhost:5173 in Chrome, Edge or Safari (the free browser speech recognition is not in Firefox; pick the OpenAI ears there).
 
-You need at least one model key in `.dev.vars`:
+You need `OPENAI_API_KEY` for the voice, plus a key for whichever model you pick:
 
 - `ANTHROPIC_API_KEY` for the Claude models (default)
 - `OPENAI_API_KEY` for the `gpt-5.6-*` models and for the optional paid voice upgrades

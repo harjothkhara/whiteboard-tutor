@@ -1,15 +1,13 @@
 import { atom, Atom, react } from 'tldraw'
 
 export type SttEngine = 'browser' | 'openai'
-export type TtsEngine = 'browser' | 'openai'
 
 /**
  * User-facing voice settings. Persisted to localStorage so they survive reloads.
  *
  * Defaults: the browser's own (free) speech recognition for ears, and OpenAI's
  * gpt-4o-mini-tts (about $0.015/min, needs OPENAI_API_KEY on the worker) for
- * the voice. If the OpenAI call fails the queue falls back to the browser voice.
- * OpenAI ears (about $0.003/min) are opt-in.
+ * the voice. There is no browser voice. OpenAI ears (about $0.003/min) are opt-in.
  */
 export interface VoiceSettingsValues {
 	/** Use the lean, voice-first `tutor` agent mode (no screenshots). */
@@ -18,12 +16,9 @@ export interface VoiceSettingsValues {
 	speak: boolean
 	/** Which speech-to-text engine to use. */
 	sttEngine: SttEngine
-	/** Which text-to-speech engine to use. */
-	ttsEngine: TtsEngine
-	/** Browser voice name (speechSynthesis) or OpenAI voice id. */
-	browserVoice: string
+	/** OpenAI voice id (marin, cedar, alloy, ...). */
 	openaiVoice: string
-	/** Speech rate for browser TTS. 1 is normal. */
+	/** Playback rate. 1 is normal. */
 	rate: number
 	/** After the tutor finishes speaking, automatically start listening again. */
 	handsFree: boolean
@@ -35,10 +30,8 @@ const DEFAULTS: VoiceSettingsValues = {
 	tutorMode: true,
 	speak: true,
 	sttEngine: 'browser',
-	ttsEngine: 'openai',
-	browserVoice: '',
 	openaiVoice: 'marin',
-	rate: 1.05,
+	rate: 1,
 	handsFree: false,
 }
 
@@ -57,8 +50,6 @@ function makeAtoms(values: VoiceSettingsValues) {
 		tutorMode: atom('voice.tutorMode', values.tutorMode),
 		speak: atom('voice.speak', values.speak),
 		sttEngine: atom<SttEngine>('voice.sttEngine', values.sttEngine),
-		ttsEngine: atom<TtsEngine>('voice.ttsEngine', values.ttsEngine),
-		browserVoice: atom('voice.browserVoice', values.browserVoice),
 		openaiVoice: atom('voice.openaiVoice', values.openaiVoice),
 		rate: atom('voice.rate', values.rate),
 		handsFree: atom('voice.handsFree', values.handsFree),
@@ -74,8 +65,6 @@ export function getVoiceSettings(): VoiceSettingsValues {
 		tutorMode: voiceSettings.tutorMode.get(),
 		speak: voiceSettings.speak.get(),
 		sttEngine: voiceSettings.sttEngine.get(),
-		ttsEngine: voiceSettings.ttsEngine.get(),
-		browserVoice: voiceSettings.browserVoice.get(),
 		openaiVoice: voiceSettings.openaiVoice.get(),
 		rate: voiceSettings.rate.get(),
 		handsFree: voiceSettings.handsFree.get(),

@@ -3,7 +3,6 @@ import { useValue } from 'tldraw'
 import { useAgent } from '../agent/TldrawAgentAppProvider'
 import { runDemoLesson } from '../demo/runDemoLesson'
 import { isBrowserSttSupported } from '../voice/stt'
-import { getBrowserVoices, isBrowserTtsSupported } from '../voice/tts'
 import { VoiceController } from '../voice/VoiceController'
 import { voiceSettings } from '../voice/VoiceSettings'
 
@@ -124,21 +123,9 @@ function VoiceSettingsPanel({ controller }: { controller: VoiceController }) {
 	const tutorMode = useValue('voice.tutorMode', () => voiceSettings.tutorMode.get(), [])
 	const speak = useValue('voice.speak', () => voiceSettings.speak.get(), [])
 	const sttEngine = useValue('voice.sttEngine', () => voiceSettings.sttEngine.get(), [])
-	const ttsEngine = useValue('voice.ttsEngine', () => voiceSettings.ttsEngine.get(), [])
-	const browserVoice = useValue('voice.browserVoice', () => voiceSettings.browserVoice.get(), [])
 	const openaiVoice = useValue('voice.openaiVoice', () => voiceSettings.openaiVoice.get(), [])
 	const rate = useValue('voice.rate', () => voiceSettings.rate.get(), [])
 	const handsFree = useValue('voice.handsFree', () => voiceSettings.handsFree.get(), [])
-
-	// Browser voices load asynchronously in some browsers.
-	const [voices, setVoices] = useState(() => getBrowserVoices())
-	useEffect(() => {
-		if (!isBrowserTtsSupported()) return
-		const update = () => setVoices(getBrowserVoices())
-		update()
-		window.speechSynthesis.addEventListener('voiceschanged', update)
-		return () => window.speechSynthesis.removeEventListener('voiceschanged', update)
-	}, [])
 
 	const sttSupported = isBrowserSttSupported()
 
@@ -180,39 +167,14 @@ function VoiceSettingsPanel({ controller }: { controller: VoiceController }) {
 
 			<label className="voice-settings-row">
 				<span>Voice</span>
-				<select
-					value={ttsEngine}
-					onChange={(e) => voiceSettings.ttsEngine.set(e.target.value as 'browser' | 'openai')}
-				>
-					<option value="browser">Browser (free)</option>
-					<option value="openai">OpenAI gpt-4o-mini-tts (~$0.015/min)</option>
+				<select value={openaiVoice} onChange={(e) => voiceSettings.openaiVoice.set(e.target.value)}>
+					{OPENAI_VOICES.map((v) => (
+						<option key={v} value={v}>
+							{v} (OpenAI gpt-4o-mini-tts)
+						</option>
+					))}
 				</select>
 			</label>
-
-			{ttsEngine === 'browser' ? (
-				<label className="voice-settings-row">
-					<span>Speaker</span>
-					<select value={browserVoice} onChange={(e) => voiceSettings.browserVoice.set(e.target.value)}>
-						<option value="">System default</option>
-						{voices.map((v) => (
-							<option key={v.name} value={v.name}>
-								{v.name} ({v.lang})
-							</option>
-						))}
-					</select>
-				</label>
-			) : (
-				<label className="voice-settings-row">
-					<span>Speaker</span>
-					<select value={openaiVoice} onChange={(e) => voiceSettings.openaiVoice.set(e.target.value)}>
-						{OPENAI_VOICES.map((v) => (
-							<option key={v} value={v}>
-								{v}
-							</option>
-						))}
-					</select>
-				</label>
-			)}
 
 			<label className="voice-settings-row">
 				<span>Speed {rate.toFixed(2)}×</span>

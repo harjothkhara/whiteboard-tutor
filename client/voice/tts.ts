@@ -1,49 +1,43 @@
 /**
- * Text-to-speech engines with a shared sequential queue.
+ * Text-to-speech with a sequential queue.
  *
- * - `browser`: `window.speechSynthesis`. Free, instant, quality depends on OS.
- * - `openai`: posts to the worker's `/tts` route (gpt-4o-mini-tts, about
- *   $0.015 per minute of audio) and plays the MP3. The next clip is fetched
- *   while the current one plays so there is no gap between sentences.
+ * The only engine is OpenAI's `gpt-4o-mini-tts` (about $0.015 per minute of
+ * audio), reached through the worker's `/tts` route. The next clip is fetched
+ * while the current one plays so there is no gap between sentences.
+ *
+ * There is deliberately no browser `speechSynthesis` fallback. If the OpenAI
+ * call fails, the error is reported and nothing is spoken.
  */
 
-export type TtsEngineName = 'browser' | 'openai'
-
 export interface TtsOptions {
-	engine: TtsEngineName
-	browserVoice: string
-	openaiVoice: string
+	voice: string
 	rate: number
 }
 
 interface QueueItem {
 	text: string
 	options: TtsOptions
-	/** For the OpenAI engine, the audio fetch started ahead of time. */
-	prefetch?: Promise<Blob>
-}
-
-export function isBrowserTtsSupported() {
-	return typeof window !== 'undefined' && 'speechSynthesis' in window
-}
-
-export function getBrowserVoices(): SpeechSynthesisVoice[] {
-	if (!isBrowserTtsSupported()) return []
-	return window.speechSynthesis.getVoices()
+	prefetch: Promise<Blob>
 }
 
 export class TtsQueue {
 	private queue: QueueItem[] = []
 	private playing = false
 	private currentAudio: HTMLAudioElement | null = null
-	private currentUtterance: SpeechSynthesisUtterance | null = null
 	private listeners = new Set<(speaking: boolean) => void>()
+	private errorListeners = new Set<(message: string) => void>()
 	private cancelled = false
 
 	/** Subscribe to speaking/idle changes. Returns an unsubscribe function. */
 	onChange(listener: (speaking: boolean) => void) {
 		this.listeners.add(listener)
 		return () => this.listeners.delete(listener)
+	}
+
+	/** Subscribe to playback errors. Returns an unsubscribe function. */
+	onError(listener: (message: string) => void) {
+		this.errorListeners.add(listener)
+		return () => this.errorListeners.delete(listener)
 	}
 
 	isSpeaking() {
@@ -59,13 +53,10 @@ export class TtsQueue {
 	enqueue(text: string, options: TtsOptions) {
 		const clean = text.trim()
 		if (!clean) return
-		const item: QueueItem = { text: clean, options }
-		if (options.engine === 'openai') {
-			item.prefetch = fetchOpenAiAudio(clean, options.openaiVoice)
-			// Avoid unhandled-rejection noise; errors are handled when played.
-			item.prefetch.catch(() => {})
-		}
-		this.queue.push(item)
+		const prefetch = fetchOpenAiAudio(clean, options.voice)
+		// Errors are handled when the item is played.
+		prefetch.catch(() => {})
+		this.queue.push({ text: clean, options, prefetch })
 		this.cancelled = false
 		void this.drain()
 	}
@@ -79,8 +70,6 @@ export class TtsQueue {
 			this.currentAudio.src = ''
 			this.currentAudio = null
 		}
-		if (isBrowserTtsSupported()) window.speechSynthesis.cancel()
-		this.currentUtterance = null
 		this.setPlaying(false)
 	}
 
@@ -91,16 +80,11 @@ export class TtsQueue {
 			while (this.queue.length > 0 && !this.cancelled) {
 				const item = this.queue.shift()!
 				try {
-					if (item.options.engine === 'openai') {
-						await this.playOpenAi(item)
-					} else {
-						await this.playBrowser(item)
-					}
-				} catch (e) {
-					console.warn('TTS failed, falling back to browser voice', e)
-					if (item.options.engine === 'openai' && !this.cancelled) {
-						await this.playBrowser({ ...item, options: { ...item.options, engine: 'browser' } })
-					}
+					await this.play(item)
+				} catch (e: any) {
+					const message = e?.message ?? 'Text-to-speech failed'
+					console.warn('TTS failed', e)
+					for (const l of this.errorListeners) l(message)
 				}
 			}
 		} finally {
@@ -108,28 +92,8 @@ export class TtsQueue {
 		}
 	}
 
-	private playBrowser(item: QueueItem) {
-		return new Promise<void>((resolve) => {
-			if (!isBrowserTtsSupported()) return resolve()
-			const u = new SpeechSynthesisUtterance(item.text)
-			u.rate = item.options.rate
-			const voice = getBrowserVoices().find((v) => v.name === item.options.browserVoice)
-			if (voice) u.voice = voice
-			u.onend = () => {
-				this.currentUtterance = null
-				resolve()
-			}
-			u.onerror = () => {
-				this.currentUtterance = null
-				resolve()
-			}
-			this.currentUtterance = u
-			window.speechSynthesis.speak(u)
-		})
-	}
-
-	private async playOpenAi(item: QueueItem) {
-		const blob = await (item.prefetch ?? fetchOpenAiAudio(item.text, item.options.openaiVoice))
+	private async play(item: QueueItem) {
+		const blob = await item.prefetch
 		if (this.cancelled) return
 		const url = URL.createObjectURL(blob)
 		try {
@@ -154,6 +118,9 @@ async function fetchOpenAiAudio(text: string, voice: string): Promise<Blob> {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ text, voice }),
 	})
-	if (!res.ok) throw new Error(await res.text())
+	if (!res.ok) {
+		const detail = await res.text()
+		throw new Error(res.status === 503 ? 'Voice needs OPENAI_API_KEY in .dev.vars' : detail)
+	}
 	return res.blob()
 }

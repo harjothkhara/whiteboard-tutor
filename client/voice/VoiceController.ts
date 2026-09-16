@@ -54,9 +54,7 @@ export class VoiceController {
 					const text = (item.action as { text?: string }).text
 					if (text) {
 						this.tts.enqueue(stripMarkdown(text), {
-							engine: settings.ttsEngine,
-							browserVoice: settings.browserVoice,
-							openaiVoice: settings.openaiVoice,
+							voice: settings.openaiVoice,
 							rate: settings.rate,
 						})
 					}
@@ -67,6 +65,7 @@ export class VoiceController {
 		// Keep the status atom in sync with the agent and the TTS queue.
 		this.disposers.push(
 			this.tts.onChange(() => this.refreshStatus()),
+			this.tts.onError((message) => this.$error.set(message)),
 			react('voice: status from agent', () => {
 				agent.requests.isGenerating()
 				this.refreshStatus()
@@ -188,9 +187,7 @@ export class VoiceController {
 	say(text: string) {
 		const settings = getVoiceSettings()
 		this.tts.enqueue(text, {
-			engine: settings.ttsEngine,
-			browserVoice: settings.browserVoice,
-			openaiVoice: settings.openaiVoice,
+			voice: settings.openaiVoice,
 			rate: settings.rate,
 		})
 	}
