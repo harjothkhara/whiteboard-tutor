@@ -22,6 +22,7 @@ import { buildMessages } from '../prompt/buildMessages'
 import { buildSystemPrompt } from '../prompt/buildSystemPrompt'
 import { getModelName } from '../prompt/getModelName'
 import { closeAndParseJson } from './closeAndParseJson'
+import { normalizeModelText } from './normalizeModelText'
 
 export class AgentService {
 	openai: OpenAIProvider
@@ -144,7 +145,7 @@ export class AgentService {
 			let startTime = Date.now()
 			for await (const text of textStream) {
 				buffer += text
-				const partialObject = closeAndParseJson(buffer)
+				const partialObject = closeAndParseJson(normalizeModelText(buffer))
 				if (!partialObject) continue
 
 				const actions = partialObject.actions

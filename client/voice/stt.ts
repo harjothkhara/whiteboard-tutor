@@ -48,9 +48,13 @@ export function isBrowserSttSupported() {
 	return typeof window !== 'undefined' && getSpeechRecognitionCtor() !== null
 }
 
+/** After the last final phrase, wait this long for more speech before sending. */
+const AUTO_SEND_AFTER_MS = 1500
+
 export class BrowserStt implements SttEngineInstance {
 	private recognition: SpeechRecognitionLike | null = null
 	private finalText = ''
+	private autoSendTimer: ReturnType<typeof setTimeout> | null = null
 
 	constructor(private callbacks: SttCallbacks) {}
 
@@ -70,16 +74,24 @@ export class BrowserStt implements SttEngineInstance {
 
 		rec.onresult = (e: any) => {
 			let interim = ''
+			let gotFinal = false
 			for (let i = e.resultIndex; i < e.results.length; i++) {
 				const result = e.results[i]
 				const transcript: string = result[0]?.transcript ?? ''
 				if (result.isFinal) {
 					this.finalText += transcript + ' '
+					gotFinal = true
 				} else {
 					interim += transcript
 				}
 			}
 			this.callbacks.onInterim?.((this.finalText + interim).trim())
+
+			// Send on your own once you stop talking, so a second click isn't needed.
+			if (this.autoSendTimer) clearTimeout(this.autoSendTimer)
+			if (gotFinal && !interim) {
+				this.autoSendTimer = setTimeout(() => this.stop(), AUTO_SEND_AFTER_MS)
+			}
 		}
 		rec.onerror = (e: any) => {
 			// 'no-speech' and 'aborted' are normal when the user just clicks stop
@@ -87,6 +99,8 @@ export class BrowserStt implements SttEngineInstance {
 			this.callbacks.onError(`Speech recognition error: ${e?.error ?? 'unknown'}`)
 		}
 		rec.onend = () => {
+			if (this.autoSendTimer) clearTimeout(this.autoSendTimer)
+			this.autoSendTimer = null
 			const text = this.finalText.trim()
 			this.recognition = null
 			if (text) this.callbacks.onFinal(text)
