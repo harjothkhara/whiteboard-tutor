@@ -61,8 +61,14 @@ const activeModeNode: AgentModeNode = {
 			return
 		}
 
-		// Check if there are unsurfaced lints on created shapes
-		if (agent.lints.hasUnsurfacedLints(agent.lints.getCreatedShapes())) {
+		// Check if there are unsurfaced lints on created shapes.
+		// Not in tutor mode: nested diagrams (a box inside a box) always trip the
+		// overlap lint, which sends the tutor into a loop of "layout looks fine".
+		// Each pass costs a request and gets read aloud.
+		if (
+			agent.mode.getCurrentModeType() !== 'tutor' &&
+			agent.lints.hasUnsurfacedLints(agent.lints.getCreatedShapes())
+		) {
 			agent.schedule({
 				agentMessages: [
 					'The automated linter has detected potential visual problems in the canvas. Decide if they need to be addressed.',

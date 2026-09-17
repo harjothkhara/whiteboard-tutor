@@ -110,6 +110,13 @@ export class TldrawAgent {
 	/** The token usage tracker associated with this agent. */
 	usage: AgentUsageManager
 
+	/**
+	 * Optional hook awaited before each streamed action is applied to the canvas.
+	 * The voice layer uses it to pace drawing to speech, so shapes appear while
+	 * the sentence that introduces them is being spoken instead of racing ahead.
+	 */
+	actionGate: ((action: Streaming<AgentAction>) => Promise<void>) | null = null
+
 	// ==================== Prompt Part Utils ====================
 
 	/**
@@ -604,6 +611,10 @@ export class TldrawAgent {
 			try {
 				for await (const action of this.streamAgentActions({ prompt, signal })) {
 					if (cancelled) break
+					if (this.actionGate) {
+						await this.actionGate(action)
+						if (cancelled) break
+					}
 
 					// Set acting flag BEFORE editor.run so user action tracker ignores all changes
 					// including diff reverts that happen before act() is called

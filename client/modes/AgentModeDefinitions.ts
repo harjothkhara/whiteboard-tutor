@@ -204,9 +204,6 @@ export const AGENT_MODE_DEFINITIONS = [
 			// History
 			ChatHistoryPartUtil.type,
 			TodoListPartUtil.type,
-
-			// Lints
-			CanvasLintsPartUtil.type,
 		],
 		actions: [
 			// Communication (spoken aloud)

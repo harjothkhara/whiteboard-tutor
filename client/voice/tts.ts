@@ -31,12 +31,19 @@ export class TtsQueue {
 	private current: QueueItem | null = null
 	private listeners = new Set<(speaking: boolean) => void>()
 	private errorListeners = new Set<(message: string) => void>()
+	private startListeners = new Set<(text: string) => void>()
 	private cancelled = false
 
 	/** Subscribe to speaking/idle changes. Returns an unsubscribe function. */
 	onChange(listener: (speaking: boolean) => void) {
 		this.listeners.add(listener)
 		return () => this.listeners.delete(listener)
+	}
+
+	/** Subscribe to the start of each clip (fires even if the clip then fails). */
+	onStart(listener: (text: string) => void) {
+		this.startListeners.add(listener)
+		return () => this.startListeners.delete(listener)
 	}
 
 	/** Subscribe to playback errors. Returns an unsubscribe function. */
@@ -89,9 +96,14 @@ export class TtsQueue {
 				const item = this.queue.shift()!
 				this.current = item
 				try {
-					await this.play(item)
+					const blob = await item.prefetch
+					if (this.cancelled) continue
+					for (const l of this.startListeners) l(item.text)
+					await this.playBlob(item, blob)
 				} catch (e: any) {
 					if (e?.name === 'AbortError' || this.cancelled) continue
+					// Count it as started so anything waiting on this sentence isn't stuck.
+					for (const l of this.startListeners) l(item.text)
 					const message = e?.message ?? 'Text-to-speech failed'
 					console.warn('TTS failed', e)
 					for (const l of this.errorListeners) l(message)
@@ -104,9 +116,7 @@ export class TtsQueue {
 		}
 	}
 
-	private async play(item: QueueItem) {
-		const blob = await item.prefetch
-		if (this.cancelled) return
+	private async playBlob(item: QueueItem, blob: Blob) {
 		const url = URL.createObjectURL(blob)
 		try {
 			await new Promise<void>((resolve, reject) => {

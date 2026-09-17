@@ -206,15 +206,21 @@ export class AgentService {
 				const meta = (await providerMetadata) as
 					| { anthropic?: { cacheCreationInputTokens?: number } }
 					| undefined
-				// The AI SDK leaves Anthropic's cache *writes* out of inputTokens, so on the
-				// first turn the meter would show almost nothing. Count them explicitly.
+				// For Anthropic the AI SDK reports inputTokens as the *uncached* part only;
+				// cache reads and cache writes are separate. Normalize so inputTokens is
+				// always the full prompt size, which is what the meter expects.
 				const cacheCreationInputTokens = meta?.anthropic?.cacheCreationInputTokens ?? 0
+				const cachedInputTokens = u.cachedInputTokens ?? 0
+				const isAnthropic = modelDefinition.provider === 'anthropic'
+				const inputTokens = isAnthropic
+					? (u.inputTokens ?? 0) + cachedInputTokens + cacheCreationInputTokens
+					: (u.inputTokens ?? 0)
 				yield {
 					usage: {
 						modelName,
-						inputTokens: (u.inputTokens ?? 0) + cacheCreationInputTokens,
+						inputTokens,
 						outputTokens: u.outputTokens ?? 0,
-						cachedInputTokens: u.cachedInputTokens ?? 0,
+						cachedInputTokens,
 						cacheCreationInputTokens,
 						reasoningTokens: u.reasoningTokens ?? 0,
 					},

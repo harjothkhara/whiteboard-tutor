@@ -28,6 +28,13 @@ export class VoiceController {
 
 	private stt: SttEngineInstance | null = null
 	private tts = new TtsQueue()
+
+	// Pacing: drawing actions wait until the most recent spoken sentence has started.
+	private sentencesQueued = 0
+	private sentencesStarted = 0
+	private gateWaiters: (() => void)[] = []
+	/** Never hold the drawing longer than this if audio is slow or missing. */
+	private static GATE_TIMEOUT_MS = 8000
 	private spoken = new WeakSet<ChatHistoryItem>()
 	private disposers: (() => void)[] = []
 	private disposed = false
@@ -60,6 +67,18 @@ export class VoiceController {
 						})
 					}
 				}
+			})
+		)
+
+		// Pace the canvas to the voice.
+		agent.actionGate = (action) => this.gateAction(action)
+		this.disposers.push(
+			() => {
+				if (agent.actionGate) agent.actionGate = null
+			},
+			this.tts.onStart(() => {
+				this.sentencesStarted++
+				this.releaseGate()
 			})
 		)
 
@@ -99,12 +118,51 @@ export class VoiceController {
 				if (last && last.type === 'prompt' && last.promptSource === 'user' && !this.spoken.has(last)) {
 					this.spoken.add(last)
 					this.tts.cancel()
+					this.resetGate()
 				}
 			})
 		)
 	}
 
 	private lastStatus: VoiceStatus = 'idle'
+
+	/**
+	 * Called before each streamed action is applied. Spoken sentences pass
+	 * straight through (and are counted). Everything else waits until the
+	 * latest sentence has begun playing, so the drawing lands during the
+	 * sentence that explains it.
+	 */
+	private async gateAction(action: { _type?: string; complete: boolean; text?: string }) {
+		if (this.disposed || !voiceSettings.speak.get()) return
+		if (action._type === 'message') {
+			if (action.complete && action.text && action.text.trim()) this.sentencesQueued++
+			return
+		}
+		if (this.sentencesStarted >= this.sentencesQueued) return
+		await new Promise<void>((resolve) => {
+			const timer = setTimeout(() => {
+				this.gateWaiters = this.gateWaiters.filter((w) => w !== release)
+				resolve()
+			}, VoiceController.GATE_TIMEOUT_MS)
+			const release = () => {
+				clearTimeout(timer)
+				resolve()
+			}
+			this.gateWaiters.push(release)
+		})
+	}
+
+	private releaseGate() {
+		const waiters = this.gateWaiters
+		this.gateWaiters = []
+		for (const w of waiters) w()
+	}
+
+	private resetGate() {
+		this.sentencesQueued = 0
+		this.sentencesStarted = 0
+		this.releaseGate()
+	}
 
 	private refreshStatus() {
 		if (this.disposed) return
@@ -167,6 +225,7 @@ export class VoiceController {
 		this.tts.cancel()
 		this.abortListening()
 		this.agent.cancel()
+		this.resetGate()
 	}
 
 	/** Send a transcript to the agent as if it had been typed. */
@@ -210,6 +269,7 @@ export class VoiceController {
 		this.disposed = true
 		this.abortListening()
 		this.tts.cancel()
+		this.releaseGate()
 		for (const d of this.disposers) d()
 		this.disposers = []
 	}
