@@ -501,7 +501,7 @@ function convertGeoShapeToTldrawShape(
 			isLocked: defaultGeoShape.isLocked ?? false,
 			opacity: defaultGeoShape.opacity ?? 1,
 			props: {
-				align: focusedShape.textAlign ?? defaultGeoShape.props?.align ?? 'middle',
+				align: asTextAlign(focusedShape.textAlign, defaultGeoShape.props?.align ?? 'middle'),
 				color: asColor(focusedShape.color ?? defaultGeoShape.props?.color ?? 'black'),
 				dash: defaultGeoShape.props?.dash ?? 'draw',
 				fill,
@@ -792,7 +792,7 @@ export function convertPartialFocusedShapeToTldrawShape(
 			shapeId: partial.shapeId ?? ('streaming-shape' as any),
 			note: partial.note ?? '',
 			color: partial.color ?? 'black',
-			textAlign: partial.textAlign || 'middle',
+			textAlign: asTextAlign(partial.textAlign, 'middle'),
 		} as FocusedGeoShape
 		const result = convertGeoShapeToTldrawShape(editor, fullShape, { defaultShape })
 		return { shape: result.shape, bindings: null, position: { x: partial.x, y: partial.y } }
@@ -814,4 +814,13 @@ export function convertPartialFocusedShapeToTldrawShape(
 				? { x: focusedShape.x1 as number, y: focusedShape.y1 as number }
 				: null
 	return { shape: result.shape, bindings: result.bindings ?? null, position }
+}
+
+/**
+ * While an action is still streaming, enum values can arrive half-written
+ * ("midd" for "middle"). tldraw's validator rejects those and crashes the
+ * editor, so only pass through values we know are valid.
+ */
+function asTextAlign<T extends string>(value: string | undefined, fallback: T) {
+	return value === 'start' || value === 'middle' || value === 'end' ? value : fallback
 }

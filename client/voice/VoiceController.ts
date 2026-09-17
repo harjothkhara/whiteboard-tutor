@@ -1,8 +1,9 @@
-import { atom, Atom, react } from 'tldraw'
+import { atom, Atom, JsonValue, react } from 'tldraw'
 import { ChatHistoryItem } from '../../shared/types/ChatHistoryItem'
 import type { TldrawAgent } from '../agent/TldrawAgent'
 import { createStt, SttEngineInstance } from './stt'
 import { TtsQueue } from './tts'
+import { fetchLinksForPrompt } from './links'
 import { getVoiceSettings, voiceSettings } from './VoiceSettings'
 
 export type VoiceStatus = 'idle' | 'listening' | 'thinking' | 'speaking'
@@ -169,9 +170,21 @@ export class VoiceController {
 	}
 
 	/** Send a transcript to the agent as if it had been typed. */
-	submit(text: string) {
+	async submit(text: string) {
 		const message = text.trim()
 		if (!message) return
+
+		// Any links in the message are read by the worker and shown to the model.
+		// Resolve them first: the agent clones the request and can't clone promises.
+		const linkPromises = fetchLinksForPrompt(message)
+		let data: JsonValue[] = []
+		if (linkPromises.length > 0) {
+			this.$interim.set('Reading link…')
+			data = await Promise.all(linkPromises)
+			this.$interim.set('')
+		}
+		if (this.disposed) return
+
 		this.agent.interrupt({
 			input: {
 				agentMessages: [message],
@@ -179,6 +192,7 @@ export class VoiceController {
 				bounds: this.agent.editor.getViewportPageBounds(),
 				source: 'user',
 				contextItems: this.agent.context.getItems(),
+				data,
 			},
 		})
 	}

@@ -2,6 +2,7 @@ import { FormEventHandler, useCallback, useRef, useState } from 'react'
 import { useValue } from 'tldraw'
 import { getActiveBoard } from '../boards/BoardStore'
 import { BoardsDrawer } from './BoardsDrawer'
+import { fetchLinksForPrompt } from '../voice/links'
 import { useAgent } from '../agent/TldrawAgentAppProvider'
 import { ChatHistory } from './chat-history/ChatHistory'
 import { ChatInput } from './ChatInput'
@@ -30,12 +31,16 @@ export function ChatPanel() {
 			inputRef.current.value = ''
 
 			// Sending a new message to the agent should interrupt the current request
+			// Links are read by the worker first; the agent can't clone pending promises.
+			const data = await Promise.all(fetchLinksForPrompt(value))
+
 			agent.interrupt({
 				input: {
 					agentMessages: [value],
 					bounds: agent.editor.getViewportPageBounds(),
 					source: 'user',
 					contextItems: agent.context.getItems(),
+					data,
 				},
 			})
 		},

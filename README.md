@@ -34,6 +34,10 @@ Open http://localhost:5173, click the mic (or hold **V**), and ask something lik
 - The gear icon in the voice bar opens settings: voice (marin, cedar, and the rest of OpenAI's voices), speed, ears, hands-free mode, and tutor mode.
 - **Hands-free** reopens the mic automatically after each answer, so you can have a back-and-forth without clicking.
 
+## Ask about a link
+
+Paste or say a URL and the tutor reads it before answering: "walk me through https://github.com/kubernetes/website/pull/57530". GitHub pull requests and issues are read through the GitHub API (title, description, changed files, a trimmed diff); other pages are reduced to plain text. Content is capped at a few thousand tokens per link, up to three links per question. Set `GITHUB_TOKEN` in `.dev.vars` if you hit GitHub's 60-requests-per-hour anonymous limit.
+
 ## Boards and folders
 
 The ☰ button in the chat header opens the boards drawer. Every board has its own canvas and its own chat history, saved in your browser.

@@ -16,3 +16,7 @@ GOOGLE_API_KEY=
 ACCESS_TOKEN=
 # Optional: comma-separated origins allowed to call the API when deployed.
 ALLOWED_ORIGINS=
+
+# Optional: lets the tutor read GitHub pull requests and issues without hitting
+# the 60/hour anonymous limit (and private repos you can see).
+GITHUB_TOKEN=

@@ -17,4 +17,10 @@ export interface Environment {
 	 * deployed, and to any origin in local dev.
 	 */
 	ALLOWED_ORIGINS?: string
+
+	/**
+	 * Optional. A GitHub token raises the rate limit for reading pull requests
+	 * and issues (60/hour without one) and allows private repos you can see.
+	 */
+	GITHUB_TOKEN?: string
 }

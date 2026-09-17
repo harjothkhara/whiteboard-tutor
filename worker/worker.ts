@@ -3,6 +3,7 @@ import { WorkerEntrypoint } from 'cloudflare:workers'
 import { AutoRouter, cors, error, IRequest } from 'itty-router'
 import { checkAccess } from './auth'
 import { Environment } from './environment'
+import { fetchLink } from './routes/fetchLink'
 import { stream } from './routes/stream'
 import { transcribe } from './routes/transcribe'
 import { tts } from './routes/tts'
@@ -25,6 +26,7 @@ const router = AutoRouter<IRequest, [env: Environment, ctx: ExecutionContext]>({
 	.post('/stream', stream)
 	.post('/tts', tts)
 	.post('/transcribe', transcribe)
+	.post('/fetch', fetchLink)
 
 export default class extends WorkerEntrypoint<Environment> {
 	override fetch(request: Request): Promise<Response> {
