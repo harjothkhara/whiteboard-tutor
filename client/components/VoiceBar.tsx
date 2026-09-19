@@ -45,7 +45,7 @@ function VoiceBarInner({ controller }: { controller: VoiceController }) {
 	const status = useValue('voice.status', () => controller.$status.get(), [controller])
 	const interim = useValue('voice.interim', () => controller.$interim.get(), [controller])
 	const error = useValue('voice.error', () => controller.$error.get(), [controller])
-	const handsFree = useValue('voice.handsFree', () => voiceSettings.handsFree.get(), [])
+	const sessionOn = useValue('voice.session', () => controller.$session.get(), [controller])
 	const [showSettings, setShowSettings] = useState(false)
 
 	// Push-to-talk: hold V while the canvas or panel has focus (not while typing).
@@ -75,34 +75,39 @@ function VoiceBarInner({ controller }: { controller: VoiceController }) {
 		}
 	}, [controller])
 
-	const label =
-		status === 'listening'
-			? 'Listening… click to send'
+	const label = sessionOn
+		? status === 'listening'
+			? 'Listening…'
 			: status === 'thinking'
 				? 'Thinking…'
 				: status === 'speaking'
-					? 'Speaking… click to interrupt'
-					: handsFree
-						? 'Hands-free on. Click or hold V to talk'
-						: 'Click or hold V to talk'
+					? 'Speaking…'
+					: 'Voice chat on'
+		: 'Start voice chat (or hold V to talk)'
 
 	return (
 		<div className="voice-bar">
 			<div className="voice-row">
 				<button
 					type="button"
-					className={`voice-mic voice-mic--${status}`}
-					onClick={() => {
-						if (status === 'speaking' || status === 'thinking') controller.stopEverything()
-						else controller.toggleListening()
-					}}
-					aria-label={label}
-					title={label}
+					className={`voice-mic voice-mic--${status} ${sessionOn ? 'voice-mic--session' : ''}`}
+					onClick={() => controller.toggleSession()}
+					aria-label={sessionOn ? 'Stop voice chat' : 'Start voice chat'}
+					title={sessionOn ? 'Stop voice chat' : 'Start voice chat'}
 				>
-					{status === 'listening' ? '●' : status === 'speaking' ? '■' : status === 'thinking' ? '…' : '🎙'}
+					{sessionOn ? '■' : '🎙'}
 				</button>
 				<div className="voice-status">
 					<div className="voice-status-label">{label}</div>
+					{sessionOn && (status === 'speaking' || status === 'thinking') && (
+						<button
+							type="button"
+							className="voice-interrupt"
+							onClick={() => void controller.startListening()}
+						>
+							✋ Interrupt
+						</button>
+					)}
 					{interim && <div className="voice-interim">{interim}</div>}
 					{error && <div className="voice-error">{error}</div>}
 				</div>
@@ -126,7 +131,7 @@ function VoiceSettingsPanel({ controller }: { controller: VoiceController }) {
 	const sttEngine = useValue('voice.sttEngine', () => voiceSettings.sttEngine.get(), [])
 	const openaiVoice = useValue('voice.openaiVoice', () => voiceSettings.openaiVoice.get(), [])
 	const rate = useValue('voice.rate', () => voiceSettings.rate.get(), [])
-	const handsFree = useValue('voice.handsFree', () => voiceSettings.handsFree.get(), [])
+	const sessionOn = useValue('voice.session', () => controller.$session.get(), [controller])
 
 	const sttSupported = isBrowserSttSupported()
 
@@ -143,14 +148,6 @@ function VoiceSettingsPanel({ controller }: { controller: VoiceController }) {
 			<label>
 				<input type="checkbox" checked={speak} onChange={(e) => voiceSettings.speak.set(e.target.checked)} />
 				Read replies aloud
-			</label>
-			<label>
-				<input
-					type="checkbox"
-					checked={handsFree}
-					onChange={(e) => voiceSettings.handsFree.set(e.target.checked)}
-				/>
-				Hands-free (listen again after speaking)
 			</label>
 
 			<label className="voice-settings-row">

@@ -26,6 +26,13 @@ export class VoiceController {
 	readonly $interim: Atom<string>
 	readonly $error: Atom<string | null>
 
+	/**
+	 * Voice-chat session: one click starts it and the mic then stays live for
+	 * the whole conversation (pausing while the tutor speaks, so it doesn't
+	 * hear itself through the speakers) until you stop it yourself.
+	 */
+	readonly $session: Atom<boolean>
+
 	private stt: SttEngineInstance | null = null
 	private tts = new TtsQueue()
 
@@ -47,6 +54,7 @@ export class VoiceController {
 		this.$status = atom('voice.status', 'idle')
 		this.$interim = atom('voice.interim', '')
 		this.$error = atom('voice.error', null)
+		this.$session = atom('voice.session', false)
 
 		// Don't read out history that was already on screen when the page loaded.
 		for (const item of agent.chat.getHistory()) this.spoken.add(item)
@@ -77,21 +85,22 @@ export class VoiceController {
 			})
 		)
 
-		// Hands-free: once the tutor has gone quiet, open the mic again.
+		// Session loop: whenever the session is on and everything has gone quiet,
+		// reopen the mic. The small delay keeps the tail of the tutor's audio out
+		// of the transcript.
 		this.disposers.push(
-			react('voice: hands-free loop', () => {
-				const status = this.$status.get()
-				const handsFree = voiceSettings.handsFree.get()
-				if (!handsFree || status !== 'idle') return
-				if (this.lastStatus === 'speaking' || this.lastStatus === 'thinking') {
-					// Small delay so the last audio frame isn't picked up by the mic.
-					setTimeout(() => {
-						if (!this.disposed && this.$status.get() === 'idle' && voiceSettings.handsFree.get()) {
-							void this.startListening()
-						}
-					}, 400)
-				}
-				this.lastStatus = status
+			react('voice: session loop', () => {
+				if (!this.$session.get() || this.$status.get() !== 'idle') return
+				setTimeout(() => {
+					if (
+						!this.disposed &&
+						this.$session.get() &&
+						this.$status.get() === 'idle' &&
+						!this.stt
+					) {
+						void this.startListening()
+					}
+				}, 400)
 			})
 		)
 
@@ -239,7 +248,11 @@ export class VoiceController {
 		const stt = createStt(engine, {
 			onInterim: (text) => this.$interim.set(text),
 			onFinal: (text) => this.submit(text),
-			onError: (message) => this.$error.set(message),
+			onError: (message) => {
+				this.$error.set(message)
+				// Don't loop forever reopening a mic that can't open.
+				this.$session.set(false)
+			},
 			onEnd: () => {
 				if (this.stt === stt) this.stt = null
 				this.$interim.set('')
@@ -267,6 +280,26 @@ export class VoiceController {
 	toggleListening() {
 		if (this.stt) this.stopListening()
 		else void this.startListening()
+	}
+
+	// ==================== Session mode ====================
+
+	/** Start a voice-chat session: the mic stays on until you stop it. */
+	startSession() {
+		if (this.disposed) return
+		this.$session.set(true)
+		void this.startListening()
+	}
+
+	/** End the session: stop the mic, the speech, and any running request. */
+	stopSession() {
+		this.$session.set(false)
+		this.stopEverything()
+	}
+
+	toggleSession() {
+		if (this.$session.get()) this.stopSession()
+		else this.startSession()
 	}
 
 	/** Cut the tutor off mid-sentence and cancel the current request. */

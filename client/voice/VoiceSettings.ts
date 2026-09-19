@@ -20,8 +20,6 @@ export interface VoiceSettingsValues {
 	openaiVoice: string
 	/** Playback rate. 1 is normal. */
 	rate: number
-	/** After the tutor finishes speaking, automatically start listening again. */
-	handsFree: boolean
 }
 
 const STORAGE_KEY = 'whiteboard-tutor:voice-settings'
@@ -32,7 +30,6 @@ const DEFAULTS: VoiceSettingsValues = {
 	sttEngine: 'browser',
 	openaiVoice: 'marin',
 	rate: 1,
-	handsFree: false,
 }
 
 function load(): VoiceSettingsValues {
@@ -52,7 +49,6 @@ function makeAtoms(values: VoiceSettingsValues) {
 		sttEngine: atom<SttEngine>('voice.sttEngine', values.sttEngine),
 		openaiVoice: atom('voice.openaiVoice', values.openaiVoice),
 		rate: atom('voice.rate', values.rate),
-		handsFree: atom('voice.handsFree', values.handsFree),
 	} satisfies { [K in keyof VoiceSettingsValues]: Atom<VoiceSettingsValues[K]> }
 }
 
@@ -67,7 +63,6 @@ export function getVoiceSettings(): VoiceSettingsValues {
 		sttEngine: voiceSettings.sttEngine.get(),
 		openaiVoice: voiceSettings.openaiVoice.get(),
 		rate: voiceSettings.rate.get(),
-		handsFree: voiceSettings.handsFree.get(),
 	}
 }
 

@@ -32,7 +32,7 @@ Open http://localhost:5173, click the mic (or hold **V**), and ask something lik
 - Click the mic while the tutor is talking to cut it off.
 - Pick the model from the dropdown under the chat box.
 - The gear icon in the voice bar opens settings: voice (marin, cedar, and the rest of OpenAI's voices), speed, ears, hands-free mode, and tutor mode.
-- **Hands-free** reopens the mic automatically after each answer, so you can have a back-and-forth without clicking.
+- One click on the mic starts a **voice chat session**: the mic stays on for the whole conversation (it pauses while the tutor talks, then listens again) until you press the stop button. **✋ Interrupt** cuts the tutor off mid-answer.
 
 ## Ask about a link
 
