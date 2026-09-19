@@ -2,7 +2,7 @@ import { atom, Atom, JsonValue, react } from 'tldraw'
 import { ChatHistoryItem } from '../../shared/types/ChatHistoryItem'
 import type { TldrawAgent } from '../agent/TldrawAgent'
 import { createStt, SttEngineInstance } from './stt'
-import { TtsQueue } from './tts'
+import { prefetchTts, TtsQueue } from './tts'
 import { fetchLinksForPrompt } from './links'
 import { getVoiceSettings, voiceSettings } from './VoiceSettings'
 
@@ -32,6 +32,10 @@ export class VoiceController {
 	// Pacing: drawing actions wait until the most recent spoken sentence has started.
 	private sentencesQueued = 0
 	private sentencesStarted = 0
+
+	// Sentence streaming: how much of the current message action is already queued.
+	private msgSpokenChars = 0
+	private msgLastText = ''
 	private gateWaiters: (() => void)[] = []
 	/** Never hold the drawing longer than this if audio is slow or missing. */
 	private static GATE_TIMEOUT_MS = 8000
@@ -47,28 +51,9 @@ export class VoiceController {
 		// Don't read out history that was already on screen when the page loaded.
 		for (const item of agent.chat.getHistory()) this.spoken.add(item)
 
-		// Speak newly completed message actions.
-		this.disposers.push(
-			react('voice: speak new messages', () => {
-				const history = agent.chat.getHistory()
-				const settings = getVoiceSettings()
-				for (const item of history) {
-					if (this.spoken.has(item)) continue
-					if (item.type !== 'action') continue
-					if (!item.action.complete) continue
-					this.spoken.add(item)
-					if (!settings.speak) continue
-					if (item.action._type !== 'message') continue
-					const text = (item.action as { text?: string }).text
-					if (text) {
-						this.tts.enqueue(stripMarkdown(text), {
-							voice: settings.openaiVoice,
-							rate: settings.rate,
-						})
-					}
-				}
-			})
-		)
+		// Speaking happens in `gateAction` as sentences stream in, so the voice
+		// starts as soon as the first sentence exists instead of waiting for the
+		// model to finish it. History items are only tracked here for cancel logic.
 
 		// Pace the canvas to the voice.
 		agent.actionGate = (action) => this.gateAction(action)
@@ -135,7 +120,7 @@ export class VoiceController {
 	private async gateAction(action: { _type?: string; complete: boolean; text?: string }) {
 		if (this.disposed || !voiceSettings.speak.get()) return
 		if (action._type === 'message') {
-			if (action.complete && action.text && action.text.trim()) this.sentencesQueued++
+			this.speakStreamingMessage(action)
 			return
 		}
 		if (this.sentencesStarted >= this.sentencesQueued) return
@@ -150,6 +135,51 @@ export class VoiceController {
 			}
 			this.gateWaiters.push(release)
 		})
+	}
+
+	/**
+	 * Speak a message action as it streams in: every finished sentence is sent
+	 * to text-to-speech immediately, so the voice starts within a couple of
+	 * seconds instead of after the whole paragraph is written.
+	 */
+	private speakStreamingMessage(action: { complete: boolean; text?: string }) {
+		const text = action.text ?? ''
+
+		// A fresh message (streaming restarted or a new action) resets the cursor.
+		if (!text.startsWith(this.msgLastText.slice(0, this.msgSpokenChars))) {
+			this.msgSpokenChars = 0
+		}
+		this.msgLastText = text
+
+		// Queue every completed sentence beyond what's already been queued.
+		const unspoken = text.slice(this.msgSpokenChars)
+		const boundary = /([.!?])(\s+|$)/g
+		let consumed = 0
+		let match: RegExpExecArray | null
+		while ((match = boundary.exec(unspoken)) !== null) {
+			const end = match.index + match[0].length
+			// Don't cut on abbreviations/decimals: require a few words of content.
+			if (end - consumed >= 12 || action.complete) {
+				this.enqueueSentence(unspoken.slice(consumed, end))
+				consumed = end
+			}
+		}
+
+		if (action.complete) {
+			this.enqueueSentence(unspoken.slice(consumed))
+			this.msgSpokenChars = 0
+			this.msgLastText = ''
+		} else {
+			this.msgSpokenChars += consumed
+		}
+	}
+
+	private enqueueSentence(fragment: string) {
+		const clean = stripMarkdown(fragment)
+		if (!clean) return
+		const settings = getVoiceSettings()
+		this.sentencesQueued++
+		this.tts.enqueue(clean, { voice: settings.openaiVoice, rate: settings.rate })
 	}
 
 	private releaseGate() {
@@ -180,12 +210,31 @@ export class VoiceController {
 		return this.stt !== null
 	}
 
+	/** Openers spoken instantly while the model is still thinking. */
+	private static OPENERS = [
+		'Alright, let me draw this out.',
+		'Good question. Let me sketch it.',
+		'Okay, let us put this on the board.',
+		'Sure. Watch the board.',
+		'Let me show you.',
+	]
+	private nextOpener = Math.floor(Math.random() * VoiceController.OPENERS.length)
+
 	/** Start the microphone. Any speech in progress is cut off (barge-in). */
 	async startListening() {
 		if (this.stt || this.disposed) return
 		this.$error.set(null)
 		this.tts.cancel()
+		this.resetGate()
 		this.$interim.set('')
+
+		// Warm up the opener audio so it can play the instant you stop talking.
+		if (voiceSettings.speak.get()) {
+			prefetchTts(
+				VoiceController.OPENERS[this.nextOpener],
+				voiceSettings.openaiVoice.get()
+			)?.catch(() => {})
+		}
 		const engine = voiceSettings.sttEngine.get()
 		const stt = createStt(engine, {
 			onInterim: (text) => this.$interim.set(text),
@@ -254,6 +303,14 @@ export class VoiceController {
 				data,
 			},
 		})
+
+		// Fill the model's thinking time with a short spoken acknowledgment.
+		// After the interrupt, so the new-prompt cancel doesn't wipe it.
+		if (voiceSettings.speak.get()) {
+			const opener = VoiceController.OPENERS[this.nextOpener]
+			this.nextOpener = (this.nextOpener + 1) % VoiceController.OPENERS.length
+			this.enqueueSentence(opener)
+		}
 	}
 
 	/** Speak an arbitrary line (used for the test button). */

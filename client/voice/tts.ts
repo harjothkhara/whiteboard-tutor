@@ -24,6 +24,27 @@ interface QueueItem {
 	abort: AbortController
 }
 
+/**
+ * Small cache of prefetched audio, used for the instant spoken openers so the
+ * tutor can acknowledge you the moment you stop talking. Keyed by voice+text.
+ */
+const audioCache = new Map<string, Promise<Blob>>()
+
+export function prefetchTts(text: string, voice: string) {
+	const key = voice + '|' + text
+	if (!audioCache.has(key)) {
+		const promise = fetchOpenAiAudio(text, voice, new AbortController().signal)
+		promise.catch(() => audioCache.delete(key))
+		audioCache.set(key, promise)
+		// Keep the cache small.
+		if (audioCache.size > 24) {
+			const first = audioCache.keys().next().value
+			if (first) audioCache.delete(first)
+		}
+	}
+	return audioCache.get(key)!
+}
+
 export class TtsQueue {
 	private queue: QueueItem[] = []
 	private playing = false
@@ -66,7 +87,8 @@ export class TtsQueue {
 		const clean = text.trim()
 		if (!clean) return
 		const abort = new AbortController()
-		const prefetch = fetchOpenAiAudio(clean, options.voice, abort.signal)
+		const cached = audioCache.get(options.voice + '|' + clean)
+		const prefetch = cached ?? fetchOpenAiAudio(clean, options.voice, abort.signal)
 		// Errors are handled when the item is played.
 		prefetch.catch(() => {})
 		this.queue.push({ text: clean, options, prefetch, abort })
