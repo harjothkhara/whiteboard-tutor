@@ -12,7 +12,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"typecheck": "tsc --noEmit -p tsconfig.json",
-		"deploy": "wrangler deploy"
+		"deploy": "vite build && wrangler deploy --config dist/whiteboard_tutor/wrangler.json"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^2.0.80",

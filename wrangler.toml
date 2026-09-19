@@ -11,11 +11,8 @@ enabled = true
 [durable_objects]
 bindings = [{ name = "AGENT_DURABLE_OBJECT", class_name = "AgentDurableObject" }]
 
-# Durable objects require migrations to create/modify/delete them
+# Durable objects require migrations to create/modify/delete them.
+# SQLite-backed so it works on the free plan too.
 [[migrations]]
 tag = "v1"
-new_classes = ["TldrawAiDurableObject"]
-
-[[migrations]]
-tag = "v2"
-renamed_classes = [{ from = "TldrawAiDurableObject", to = "AgentDurableObject" }]
+new_sqlite_classes = ["AgentDurableObject"]

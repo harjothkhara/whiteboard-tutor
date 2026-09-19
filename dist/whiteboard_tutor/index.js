@@ -175,6 +175,128 @@ function getSessionId(request) {
 	return /^[A-Za-z0-9_-]{8,64}$/.test(id) ? id : "anonymous";
 }
 //#endregion
+//#region worker/routes/fetchLink.ts
+/**
+* Read a link for the tutor.
+*
+* GitHub pull requests and issues get structured handling through the GitHub
+* API (title, description, changed files, a trimmed diff). Anything else is
+* fetched and reduced to plain text. Output is capped so a link never costs
+* more than a few thousand tokens.
+*/
+var MAX_TEXT_CHARS = 9e3;
+var MAX_PATCH_CHARS = 6e3;
+async function fetchLink(request, env) {
+	const raw = ((await request.json()).url ?? "").trim();
+	let url;
+	try {
+		url = new URL(raw);
+	} catch {
+		return Response.json({ error: "Not a valid URL" }, { status: 400 });
+	}
+	if (url.protocol !== "https:" && url.protocol !== "http:") return Response.json({ error: "Only http(s) links" }, { status: 400 });
+	if (isPrivateHost(url.hostname)) return Response.json({ error: "That host is not allowed" }, { status: 400 });
+	try {
+		const gh = parseGitHubUrl(url);
+		if (gh) return Response.json(await readGitHub(gh, env));
+		return Response.json(await readPage(url));
+	} catch (e) {
+		return Response.json({ error: e?.message ?? "Could not read the link" }, { status: 502 });
+	}
+}
+function isPrivateHost(host) {
+	const h = host.toLowerCase();
+	return h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal") || /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^169\.254\./.test(h) || h === "0.0.0.0" || h === "::1" || h.startsWith("[");
+}
+function parseGitHubUrl(url) {
+	if (url.hostname !== "github.com") return null;
+	const m = url.pathname.match(/^\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/);
+	if (!m) return null;
+	return {
+		owner: m[1],
+		repo: m[2],
+		kind: m[3],
+		number: Number(m[4])
+	};
+}
+async function ghGet(path, env) {
+	const headers = {
+		Accept: "application/vnd.github+json",
+		"User-Agent": "whiteboard-tutor"
+	};
+	if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
+	const res = await fetch(`https://api.github.com${path}`, { headers });
+	if (!res.ok) throw new Error(`GitHub API ${res.status} for ${path}`);
+	return res.json();
+}
+async function readGitHub(ref, env) {
+	const base = `/repos/${ref.owner}/${ref.repo}`;
+	if (ref.kind === "issues") {
+		const issue = await ghGet(`${base}/issues/${ref.number}`, env);
+		return {
+			source: `github issue ${ref.owner}/${ref.repo}#${ref.number}`,
+			title: issue.title,
+			state: issue.state,
+			author: issue.user?.login,
+			labels: (issue.labels ?? []).map((l) => l.name),
+			text: clip(issue.body ?? "", MAX_TEXT_CHARS)
+		};
+	}
+	const [pr, files] = await Promise.all([ghGet(`${base}/pulls/${ref.number}`, env), ghGet(`${base}/pulls/${ref.number}/files?per_page=50`, env)]);
+	let patchBudget = MAX_PATCH_CHARS;
+	const changedFiles = files.map((f) => {
+		let patch;
+		if (f.patch && patchBudget > 0) {
+			patch = clip(f.patch, Math.min(patchBudget, 2500));
+			patchBudget -= patch.length;
+		}
+		return {
+			file: f.filename,
+			status: f.status,
+			additions: f.additions,
+			deletions: f.deletions,
+			...patch ? { patch } : {}
+		};
+	});
+	return {
+		source: `github pull request ${ref.owner}/${ref.repo}#${ref.number}`,
+		title: pr.title,
+		state: pr.merged ? "merged" : pr.state,
+		author: pr.user?.login,
+		branch: `${pr.head?.ref} -> ${pr.base?.ref}`,
+		changedFiles: pr.changed_files,
+		additions: pr.additions,
+		deletions: pr.deletions,
+		description: clip(pr.body ?? "", MAX_TEXT_CHARS),
+		files: changedFiles
+	};
+}
+async function readPage(url) {
+	const res = await fetch(url.toString(), {
+		headers: {
+			"User-Agent": "whiteboard-tutor",
+			Accept: "text/html,text/plain,application/json"
+		},
+		redirect: "follow"
+	});
+	if (!res.ok) throw new Error(`HTTP ${res.status} fetching the page`);
+	const type = res.headers.get("content-type") ?? "";
+	const body = await res.text();
+	const text = type.includes("html") ? htmlToText(body) : body;
+	const titleMatch = body.match(/<title[^>]*>([^<]*)<\/title>/i);
+	return {
+		source: url.toString(),
+		title: titleMatch ? titleMatch[1].trim() : void 0,
+		text: clip(text, MAX_TEXT_CHARS)
+	};
+}
+function htmlToText(html) {
+	return html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<nav[\s\S]*?<\/nav>/gi, " ").replace(/<footer[\s\S]*?<\/footer>/gi, " ").replace(/<(br|p|div|li|h[1-6]|tr)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+}
+function clip(text, max) {
+	return text.length > max ? text.slice(0, max) + "\n…[truncated]" : text;
+}
+//#endregion
 //#region worker/routes/stream.ts
 async function stream(request, env) {
 	const id = env.AGENT_DURABLE_OBJECT.idFromName(getSessionId(request));
@@ -143110,7 +143232,9 @@ You are acting as a patient tutor at a whiteboard. The user speaks their questio
 - Lay the diagram out inside the user's current viewport, left to right or top to bottom in the order you explain it, leaving space between elements. Do not overlap shapes.
 - If the user asks a follow-up, add to or annotate the existing diagram rather than starting over, unless they ask for something new.
 - Do not use \`think\` actions to narrate. \`think\` is silent. Everything the user should hear goes in a \`message\`.
+- If the request comes with fetched link content (a pull request, issue, or web page), teach from that content: say what it is in one sentence, then draw the key idea (what changed and why, or how the pieces fit). Never say you cannot open links; the content is already in front of you. If the fetch failed, say so in one sentence and offer to explain the topic from what you know.
 - Be economical: aim for the smallest diagram that makes the idea clear, usually 4 to 12 shapes.
+- Your entire reply is always one JSON object of the form {"actions": [...]}, including short answers and follow-ups. Never write prose outside the JSON. The chat history shows your earlier actions as "[ACTION]: {...}" lines; that is only how they are displayed to you, never write in that notation.
 `;
 }
 //#endregion
@@ -143209,6 +143333,50 @@ function closeAndParseJson(string) {
 	}
 }
 //#endregion
+//#region worker/do/normalizeModelText.ts
+/**
+* Coerce whatever the model wrote into the JSON text the action parser expects.
+*
+* Models usually answer with `{"actions": [...]}` as asked. On follow-up turns
+* they sometimes slip into the notation the chat history uses to *show* past
+* actions, i.e. prose paragraphs with `[ACTION]: {...}` lines. Rather than drop
+* the whole reply, turn prose into `message` actions and the `[ACTION]` lines
+* into real actions. Works on partial (still-streaming) text: the result may be
+* an unterminated JSON prefix, which `closeAndParseJson` knows how to close.
+*/
+function normalizeModelText(raw) {
+	let text = raw.replace(/^\s+/, "");
+	if (text.startsWith("```")) text = text.replace(/^```[a-zA-Z]*\s*/, "");
+	text = text.replace(/\s*`{1,3}\s*$/, "");
+	if (text.startsWith("{") || text.startsWith("[")) return text;
+	const items = [];
+	let paragraph = [];
+	const flushParagraph = () => {
+		const joined = paragraph.join(" ").trim();
+		paragraph = [];
+		if (joined) items.push(JSON.stringify({
+			_type: "message",
+			text: joined
+		}));
+	};
+	for (const line of text.split("\n")) {
+		const trimmed = line.trim();
+		const actionMatch = trimmed.match(/^\[?ACTION\]?\s*:\s*(\{.*)$/);
+		if (actionMatch) {
+			flushParagraph();
+			items.push(actionMatch[1]);
+			continue;
+		}
+		if (trimmed === "") {
+			flushParagraph();
+			continue;
+		}
+		paragraph.push(trimmed);
+	}
+	flushParagraph();
+	return "{\"actions\":[" + items.join(",");
+}
+//#endregion
 //#region worker/do/AgentService.ts
 var AgentService = class {
 	openai;
@@ -143266,7 +143434,7 @@ var AgentService = class {
 			content: "{\"actions\": [{\"_type\":"
 		});
 		try {
-			const { textStream, usage } = streamText({
+			const { textStream, usage, providerMetadata } = streamText({
 				model,
 				messages,
 				maxOutputTokens: isTutor ? 4096 : 8192,
@@ -143286,7 +143454,7 @@ var AgentService = class {
 			let startTime = Date.now();
 			for await (const text of textStream) {
 				buffer += text;
-				const partialObject = closeAndParseJson(buffer);
+				const partialObject = closeAndParseJson(normalizeModelText(buffer));
 				if (!partialObject) continue;
 				const actions = partialObject.actions;
 				if (!Array.isArray(actions)) continue;
@@ -143319,13 +143487,17 @@ var AgentService = class {
 				complete: true,
 				time: Date.now() - startTime
 			};
+			if (debugPart?.logMessages) console.log("[DEBUG] Raw model output:\n", buffer);
 			try {
 				const u = await usage;
+				const cacheCreationInputTokens = (await providerMetadata)?.anthropic?.cacheCreationInputTokens ?? 0;
+				const cachedInputTokens = u.cachedInputTokens ?? 0;
 				yield { usage: {
 					modelName,
-					inputTokens: u.inputTokens ?? 0,
+					inputTokens: modelDefinition.provider === "anthropic" ? (u.inputTokens ?? 0) + cachedInputTokens + cacheCreationInputTokens : u.inputTokens ?? 0,
 					outputTokens: u.outputTokens ?? 0,
-					cachedInputTokens: u.cachedInputTokens ?? 0,
+					cachedInputTokens,
+					cacheCreationInputTokens,
 					reasoningTokens: u.reasoningTokens ?? 0
 				} };
 			} catch (e) {
@@ -143428,7 +143600,7 @@ var router = c({
 		console.error(e);
 		return s(e);
 	}
-}).post("/stream", stream).post("/tts", tts).post("/transcribe", transcribe);
+}).post("/stream", stream).post("/tts", tts).post("/transcribe", transcribe).post("/fetch", fetchLink);
 var worker_default = class extends WorkerEntrypoint {
 	fetch(request) {
 		return router.fetch(request, this.env, this.ctx);

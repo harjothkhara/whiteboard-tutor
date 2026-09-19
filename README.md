@@ -78,13 +78,13 @@ There is no browser-voice fallback on purpose. If the OpenAI voice call fails, t
 
 ## Deploy
 
-The backend is a Cloudflare Worker with a Durable Object (one per browser session). Set the keys as secrets and deploy:
+The backend is a Cloudflare Worker with a SQLite Durable Object (one per browser session), which works on the free plan. Build, deploy, then set the keys as secrets:
 
 ```bash
-npx wrangler secret put OPENAI_API_KEY
-npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put ACCESS_TOKEN      # recommended, see below
 npm run deploy
+npx wrangler secret put OPENAI_API_KEY --config dist/whiteboard_tutor/wrangler.json
+npx wrangler secret put ANTHROPIC_API_KEY --config dist/whiteboard_tutor/wrangler.json
+npx wrangler secret put ACCESS_TOKEN --config dist/whiteboard_tutor/wrangler.json   # recommended, see below
 ```
 
 ### Lock it down before sharing a URL
