@@ -1,50 +1,78 @@
 /**
  * Coerce whatever the model wrote into the JSON text the action parser expects.
  *
- * Models usually answer with `{"actions": [...]}` as asked. On follow-up turns
- * they sometimes slip into the notation the chat history uses to *show* past
- * actions, i.e. prose paragraphs with `[ACTION]: {...}` lines. Rather than drop
- * the whole reply, turn prose into `message` actions and the `[ACTION]` lines
- * into real actions. Works on partial (still-streaming) text: the result may be
- * an unterminated JSON prefix, which `closeAndParseJson` knows how to close.
+ * Models usually answer with `{"actions": [...]}` as asked. Sometimes they slip
+ * into the notation the chat history uses to *display* past actions: prose with
+ * `[ACTION]: {...}` markers, either on their own lines or inline mid-sentence.
+ * Rather than drop (or worse, speak) the whole reply, prose becomes `message`
+ * actions and each `[ACTION]` JSON object becomes a real action.
+ *
+ * Works on partial (still-streaming) text: the result may be an unterminated
+ * JSON prefix, which `closeAndParseJson` knows how to close.
  */
 export function normalizeModelText(raw: string): string {
 	let text = raw.replace(/^\s+/, '')
 
-	// Strip a leading markdown code fence.
+	// Strip a leading markdown code fence, and a trailing one (possibly partial).
 	if (text.startsWith('```')) {
 		text = text.replace(/^```[a-zA-Z]*\s*/, '')
 	}
-	// Strip a trailing fence, complete or partial.
 	text = text.replace(/\s*`{1,3}\s*$/, '')
 
 	if (text.startsWith('{') || text.startsWith('[')) return text
 
 	// Prose fallback.
 	const items: string[] = []
-	let paragraph: string[] = []
 
-	const flushParagraph = () => {
-		const joined = paragraph.join(' ').trim()
-		paragraph = []
-		if (joined) items.push(JSON.stringify({ _type: 'message', text: joined }))
+	const pushProse = (prose: string) => {
+		for (const paragraph of prose.split(/\n\s*\n/)) {
+			const clean = paragraph.replace(/\s+/g, ' ').trim()
+			if (clean) items.push(JSON.stringify({ _type: 'message', text: clean }))
+		}
 	}
 
-	for (const line of text.split('\n')) {
-		const trimmed = line.trim()
-		const actionMatch = trimmed.match(/^\[?ACTION\]?\s*:\s*(\{.*)$/)
-		if (actionMatch) {
-			flushParagraph()
-			items.push(actionMatch[1])
-			continue
+	// An action marker anywhere in the text: "[ACTION]: {" or a line starting "ACTION: {".
+	const marker = /(?:\[ACTION\]|(?:^|\n)\s*ACTION)\s*:\s*(?=\{)/gi
+	let cursor = 0
+	let match: RegExpExecArray | null
+	while ((match = marker.exec(text)) !== null) {
+		pushProse(text.slice(cursor, match.index))
+		const jsonStart = marker.lastIndex
+		const jsonEnd = findJsonEnd(text, jsonStart)
+		if (jsonEnd === -1) {
+			// Still streaming: the rest is one incomplete action, take it and stop.
+			items.push(text.slice(jsonStart))
+			cursor = text.length
+			break
 		}
-		if (trimmed === '') {
-			flushParagraph()
-			continue
-		}
-		paragraph.push(trimmed)
+		items.push(text.slice(jsonStart, jsonEnd))
+		cursor = jsonEnd
+		marker.lastIndex = jsonEnd
 	}
-	flushParagraph()
+	pushProse(text.slice(cursor))
 
 	return '{"actions":[' + items.join(',')
+}
+
+/** Index just past the matching close brace of the object starting at `start`, or -1. */
+function findJsonEnd(text: string, start: number): number {
+	let depth = 0
+	let inString = false
+	let escaped = false
+	for (let i = start; i < text.length; i++) {
+		const c = text[i]
+		if (inString) {
+			if (escaped) escaped = false
+			else if (c === '\\') escaped = true
+			else if (c === '"') inString = false
+		} else if (c === '"') {
+			inString = true
+		} else if (c === '{') {
+			depth++
+		} else if (c === '}') {
+			depth--
+			if (depth === 0) return i + 1
+		}
+	}
+	return -1
 }
