@@ -60,15 +60,18 @@ function isPrivateHost(host: string) {
 interface GitHubRef {
 	owner: string
 	repo: string
-	kind: 'pull' | 'issues'
+	kind: 'pull' | 'issues' | 'repo'
 	number: number
 }
 
 function parseGitHubUrl(url: URL): GitHubRef | null {
 	if (url.hostname !== 'github.com') return null
-	const m = url.pathname.match(/^\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/)
-	if (!m) return null
-	return { owner: m[1], repo: m[2], kind: m[3] as 'pull' | 'issues', number: Number(m[4]) }
+	const pr = url.pathname.match(/^\/([^/]+)\/([^/]+)\/(pull|issues)\/(\d+)/)
+	if (pr) return { owner: pr[1], repo: pr[2], kind: pr[3] as 'pull' | 'issues', number: Number(pr[4]) }
+	// A bare repo link: use the API (description + README) instead of the HTML page.
+	const repo = url.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/)
+	if (repo && repo[2] !== '') return { owner: repo[1], repo: repo[2].replace(/\.git$/, ''), kind: 'repo', number: 0 }
+	return null
 }
 
 async function ghGet(path: string, env: Environment) {
@@ -84,6 +87,32 @@ async function ghGet(path: string, env: Environment) {
 
 async function readGitHub(ref: GitHubRef, env: Environment) {
 	const base = `/repos/${ref.owner}/${ref.repo}`
+
+	if (ref.kind === 'repo') {
+		const [repo, readme] = await Promise.all([
+			ghGet(base, env),
+			ghGet(`${base}/readme`, env).catch(() => null),
+		])
+		let readmeText = ''
+		if (readme?.content) {
+			try {
+				const bytes = Uint8Array.from(atob(readme.content.replace(/\n/g, '')), (c) => c.charCodeAt(0))
+				readmeText = new TextDecoder().decode(bytes)
+			} catch {
+				readmeText = ''
+			}
+		}
+		return {
+			source: `github repository ${ref.owner}/${ref.repo}`,
+			title: repo.full_name,
+			description: repo.description,
+			language: repo.language,
+			topics: repo.topics ?? [],
+			stars: repo.stargazers_count,
+			readme: clip(readmeText, MAX_TEXT_CHARS),
+		}
+	}
+
 	if (ref.kind === 'issues') {
 		const issue = await ghGet(`${base}/issues/${ref.number}`, env)
 		return {
