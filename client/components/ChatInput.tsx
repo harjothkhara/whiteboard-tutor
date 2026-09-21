@@ -1,5 +1,5 @@
 import { FormEventHandler, useState } from 'react'
-import { Editor, useValue } from 'tldraw'
+import { useValue } from 'tldraw'
 import { AtIcon } from '../../shared/icons/AtIcon'
 import { BrainIcon } from '../../shared/icons/BrainIcon'
 import { ChevronDownIcon } from '../../shared/icons/ChevronDownIcon'
@@ -43,27 +43,21 @@ export function ChatInput({
 				}}
 			>
 				<div className="prompt-tags">
-					<div className={'chat-context-select ' + (isContextToolActive ? 'active' : '')}>
-						<div className="chat-context-select-label">
-							<AtIcon /> Add Context
-						</div>
-						<select
-							id="chat-context-select"
-							value=" "
-							onChange={(e) => {
-								const action = ADD_CONTEXT_ACTIONS.find((action) => action.name === e.target.value)
-								if (action) action.onSelect(editor)
-							}}
-						>
-							{ADD_CONTEXT_ACTIONS.map((action) => {
-								return (
-									<option key={action.name} value={action.name}>
-										{action.name}
-									</option>
-								)
-							})}
-						</select>
-					</div>
+					<button
+						type="button"
+						className={'chat-context-select ' + (isContextToolActive ? 'active' : '')}
+						title="Drag a box on the canvas to attach that area to your next question"
+						onClick={() => {
+							if (isContextToolActive) {
+								editor.setCurrentTool('select')
+							} else {
+								editor.setCurrentTool('target-area')
+								editor.focus()
+							}
+						}}
+					>
+						<AtIcon /> Pick Area
+					</button>
 					{selectedShapes.length > 0 && <SelectionTag onClick={() => editor.selectNone()} />}
 					{contextItems.map((item, i) => (
 						<ContextItemTag
@@ -122,28 +116,3 @@ export function ChatInput({
 	)
 }
 
-const ADD_CONTEXT_ACTIONS = [
-	{
-		name: 'Pick Shapes',
-		onSelect: (editor: Editor) => {
-			editor.setCurrentTool('target-shape')
-			editor.focus()
-		},
-	},
-	{
-		name: 'Pick Area',
-		onSelect: (editor: Editor) => {
-			editor.setCurrentTool('target-area')
-			editor.focus()
-		},
-	},
-	{
-		name: ' ',
-		onSelect: (editor: Editor) => {
-			const currentTool = editor.getCurrentTool()
-			if (currentTool.id === 'target-area' || currentTool.id === 'target-shape') {
-				editor.setCurrentTool('select')
-			}
-		},
-	},
-]

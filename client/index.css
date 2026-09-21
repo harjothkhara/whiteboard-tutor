@@ -266,6 +266,26 @@ body {
 	border-top: 1px solid var(--tl-color-low);
 }
 
+button.chat-context-select {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	appearance: none;
+	border: 1px solid var(--tl-color-low);
+	background: var(--tl-color-muted-2);
+	color: var(--tl-color-text-2);
+	border-radius: 4px;
+	padding: 2px 8px;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+button.chat-context-select:hover,
+button.chat-context-select.active {
+	color: var(--tl-color-text-1);
+	background: var(--tl-color-muted-1);
+}
+
 /* Usage meter */
 
 .usage-meter {
