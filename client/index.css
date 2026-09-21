@@ -745,12 +745,10 @@ button.chat-context-select.active {
 }
 
 .chat-history-prompt-container {
-	position: sticky;
-	top: -6px;
+	/* The starter kit pinned the latest question to the top while its answer
+	   scrolled underneath (position: sticky). We scroll naturally instead. */
 	padding: 8px;
 	margin: -8px;
-	z-index: 9999;
-	background-color: var(--tl-color-panel);
 }
 
 .chat-history-prompt {
