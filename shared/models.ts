@@ -138,7 +138,7 @@ export const AGENT_MODEL_DEFINITIONS = {
 	},
 } as const
 
-export const DEFAULT_MODEL_NAME: AgentModelName = 'claude-sonnet-5'
+export const DEFAULT_MODEL_NAME: AgentModelName = 'claude-opus-5'
 
 /**
  * Check if a string is a valid AgentModelName.

@@ -13,7 +13,7 @@ Two API keys, both in a `.dev.vars` file at the project root:
 | Key | Used for |
 | --- | --- |
 | `OPENAI_API_KEY` | The tutor's voice (`gpt-4o-mini-tts`). Required. Also unlocks the `gpt-5.6-*` models. |
-| `ANTHROPIC_API_KEY` | The default model, `claude-sonnet-5`. Swap for `GOOGLE_API_KEY` if you prefer Gemini. |
+| `ANTHROPIC_API_KEY` | The default model, `claude-opus-5`. Swap for `GOOGLE_API_KEY` if you prefer Gemini. |
 
 A browser with built-in speech recognition: Chrome, Edge or Safari. Firefox works if you switch the ears to OpenAI in the settings drawer.
 
@@ -60,7 +60,7 @@ The ☰ button in the chat header opens the boards drawer. Every board has its o
 | --- | --- | --- |
 | Ears | Browser speech recognition | free |
 | Voice | OpenAI `gpt-4o-mini-tts` | about $0.015 per minute the tutor talks |
-| Brain | `claude-sonnet-5` in tutor mode | tokens only, mostly cached after the first turn |
+| Brain | `claude-opus-5` in tutor mode | tokens only, mostly cached after the first turn |
 
 There is no realtime voice API in the loop. That is the expensive part of most voice demos (roughly $0.06 to $0.11 per minute). Here you pay nothing while you talk and about a cent and a half per minute while the tutor talks.
 
@@ -70,7 +70,7 @@ The meter in the chat header shows requests, tokens, cache hit rate, and an esti
 
 Ways to spend less:
 
-- Switch to `claude-haiku-4-5` for routine explanations.
+- Switch to `claude-sonnet-5` or `claude-haiku-4-5` for routine explanations.
 - Start a new chat (the **+** button) when you change topic. History is part of every request.
 - Keep the viewport tight. Shapes outside it are summarized, not listed.
 
