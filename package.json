@@ -38,7 +38,7 @@
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.1",
 		"typescript": "^5.8.3",
-		"vite": "^8.0.16",
+		"vite": "^8.3.4",
 		"@types/node": "^22.0.0"
 	},
 	"description": "Voice-driven whiteboard tutor built on the tldraw agent starter kit. Speak a question, hear the answer, watch it drawn.",
