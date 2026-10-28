@@ -89,7 +89,7 @@ npx wrangler secret put ACCESS_TOKEN --config dist/whiteboard_tutor/wrangler.jso
 
 ### Lock it down before sharing a URL
 
-The three API routes (`/stream`, `/tts`, `/transcribe`) spend your credits. Two switches protect them:
+The four API routes spend your credits or quota: `/stream`, `/tts` and `/transcribe` call the model providers, and `/fetch` makes outbound requests for pasted links (using your `GITHUB_TOKEN` if set). Two switches protect all of them:
 
 - **`ACCESS_TOKEN`**: when set, every request must send it as a bearer token. Paste the same value into the settings drawer (gear icon, "Access token") in each browser you use. Pick something long and random.
 - **`ALLOWED_ORIGINS`**: comma-separated list of origins allowed to call the API. Defaults to the worker's own origin. Local dev on localhost is always allowed.
@@ -105,6 +105,7 @@ client/voice/VoiceSettings.ts            settings, saved in localStorage
 client/voice/stt.ts                      browser and OpenAI speech-to-text
 client/voice/tts.ts                      OpenAI text-to-speech queue
 client/voice/VoiceController.ts          mic -> agent, chat history -> speaker, hands-free loop
+client/voice/links.ts                    finds URLs in a question and fetches them for the prompt
 client/components/VoiceBar.tsx           mic button, status line, settings drawer
 client/boards/BoardStore.ts              named boards and folders, per-board persistence keys
 client/components/BoardsDrawer.tsx       the boards drawer (create, rename, move, delete)
@@ -114,6 +115,7 @@ client/modes/AgentModeDefinitions.ts     the `tutor` mode (no screenshot)
 worker/prompt/sections/tutor-section.ts  how the tutor is told to teach
 worker/routes/tts.ts                     proxy to gpt-4o-mini-tts
 worker/routes/transcribe.ts              proxy to gpt-4o-mini-transcribe
+worker/routes/fetchLink.ts               reads GitHub PRs/issues via the API, other pages as plain text
 worker/do/AgentService.ts                emits a `{ usage }` event after each request
 ```
 

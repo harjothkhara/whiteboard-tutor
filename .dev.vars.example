@@ -5,7 +5,7 @@
 # and the optional OpenAI speech recognition.
 OPENAI_API_KEY=
 
-# The default model is claude-sonnet-5, so you want this one too.
+# The default model is claude-opus-5, so you want this one too.
 ANTHROPIC_API_KEY=
 
 # Only if you want to use Gemini.
