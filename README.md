@@ -36,7 +36,7 @@ Open http://localhost:5173, click the mic (or hold **V**), and ask something lik
 
 ## Ask about a link
 
-Paste or say a URL and the tutor reads it before answering: "walk me through https://github.com/kubernetes/website/pull/57530". GitHub pull requests and issues are read through the GitHub API (title, description, changed files, a trimmed diff); other pages are reduced to plain text. Content is capped at a few thousand tokens per link, up to three links per question. Set `GITHUB_TOKEN` in `.dev.vars` if you hit GitHub's 60-requests-per-hour anonymous limit.
+Paste or say a URL and the tutor reads it before answering: "walk me through https://github.com/kubernetes/website/pull/57530". GitHub pull requests and issues are read through the GitHub API (title, description, changed files, a trimmed diff), and a bare repo link like https://github.com/tldraw/tldraw is read as its description and README; other pages are reduced to plain text. Content is capped at a few thousand tokens per link, up to three links per question. Set `GITHUB_TOKEN` in `.dev.vars` if you hit GitHub's 60-requests-per-hour anonymous limit.
 
 ## Boards and folders
 

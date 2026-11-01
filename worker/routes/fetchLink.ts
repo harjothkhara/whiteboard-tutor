@@ -5,7 +5,8 @@ import { Environment } from '../environment'
  * Read a link for the tutor.
  *
  * GitHub pull requests and issues get structured handling through the GitHub
- * API (title, description, changed files, a trimmed diff). Anything else is
+ * API (title, description, changed files, a trimmed diff); a bare repo link is
+ * read as its description and README. Anything else is
  * fetched and reduced to plain text. Output is capped so a link never costs
  * more than a few thousand tokens.
  */
