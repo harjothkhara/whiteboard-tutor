@@ -21,6 +21,8 @@ npm run dev
 - How the tutor teaches: `worker/prompt/sections/tutor-section.ts`
 - What the tutor can see and do: the `tutor` entry in `client/modes/AgentModeDefinitions.ts`
 - Paid voice proxies: `worker/routes/tts.ts`, `worker/routes/transcribe.ts`
+- Reading pasted links: `client/voice/links.ts` (finds URLs), `worker/routes/fetchLink.ts` (the `/fetch` route)
+- Boards and folders: `client/boards/BoardStore.ts`, `client/components/BoardsDrawer.tsx`
 - Cost meter: `client/agent/managers/AgentUsageManager.ts`, `client/components/UsageMeter.tsx`
 
 Everything else is the upstream tldraw agent starter kit. Prefer changing the files above over editing kit internals, so upstream updates stay easy to merge.
