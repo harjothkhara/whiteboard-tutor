@@ -116,6 +116,7 @@ worker/prompt/sections/tutor-section.ts  how the tutor is told to teach
 worker/routes/tts.ts                     proxy to gpt-4o-mini-tts
 worker/routes/transcribe.ts              proxy to gpt-4o-mini-transcribe
 worker/routes/fetchLink.ts               reads GitHub PRs/issues via the API, other pages as plain text
+worker/auth.ts                           ACCESS_TOKEN and ALLOWED_ORIGINS checks for every API route
 worker/do/AgentService.ts                emits a `{ usage }` event after each request
 ```
 

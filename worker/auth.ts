@@ -2,7 +2,8 @@ import { IRequest } from 'itty-router'
 import { Environment } from './environment'
 
 /**
- * Cheap protection for the three routes that spend money.
+ * Cheap protection for the four API routes that spend money or make outbound
+ * requests: /stream, /tts, /transcribe and /fetch.
  *
  * - If `ACCESS_TOKEN` is set, requests must carry `Authorization: Bearer <token>`.
  * - If `ALLOWED_ORIGINS` is set, the request's Origin must be in that list.
