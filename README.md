@@ -92,7 +92,7 @@ npx wrangler secret put ACCESS_TOKEN --config dist/whiteboard_tutor/wrangler.jso
 The four API routes spend your credits or quota: `/stream`, `/tts` and `/transcribe` call the model providers, and `/fetch` makes outbound requests for pasted links (using your `GITHUB_TOKEN` if set). Two switches protect all of them:
 
 - **`ACCESS_TOKEN`**: when set, every request must send it as a bearer token. Paste the same value into the settings drawer (gear icon, "Access token") in each browser you use. Pick something long and random.
-- **`ALLOWED_ORIGINS`**: comma-separated list of origins allowed to call the API. Defaults to the worker's own origin. Local dev on localhost is always allowed.
+- **`ALLOWED_ORIGINS`**: comma-separated list of origins allowed to call the API. Defaults to the worker's own origin. Requests to a local dev server (`localhost` or `127.0.0.1`) skip this origin check, but `ACCESS_TOKEN` is still enforced if set.
 
 Uploads to `/transcribe` are capped at 5 MB and `/tts` text at 4,000 characters. There is no per-user rate limit yet, so the token is what stands between a leaked URL and your bill.
 

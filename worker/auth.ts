@@ -8,7 +8,8 @@ import { Environment } from './environment'
  * - If `ACCESS_TOKEN` is set, requests must carry `Authorization: Bearer <token>`.
  * - If `ALLOWED_ORIGINS` is set, the request's Origin must be in that list.
  *   Otherwise browsers may only call from the worker's own origin, except in
- *   local dev (localhost) where anything goes.
+ *   local dev (localhost or 127.0.0.1) where any origin goes. ACCESS_TOKEN
+ *   still applies there.
  *
  * Returns a Response to send back if the request is rejected, or null if OK.
  */
