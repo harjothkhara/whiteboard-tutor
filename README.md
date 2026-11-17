@@ -106,6 +106,7 @@ client/voice/stt.ts                      browser and OpenAI speech-to-text
 client/voice/tts.ts                      OpenAI text-to-speech queue
 client/voice/VoiceController.ts          mic -> agent, chat history -> speaker, hands-free loop
 client/voice/links.ts                    finds URLs in a question and fetches them for the prompt
+client/voice/api.ts                      fetch wrapper: adds the access token and per-tab session id
 client/components/VoiceBar.tsx           mic button, status line, settings drawer
 client/boards/BoardStore.ts              named boards and folders, per-board persistence keys
 client/components/BoardsDrawer.tsx       the boards drawer (create, rename, move, delete)
