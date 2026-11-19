@@ -108,6 +108,7 @@ client/voice/VoiceController.ts          mic -> agent, chat history -> speaker, 
 client/voice/links.ts                    finds URLs in a question and fetches them for the prompt
 client/voice/api.ts                      fetch wrapper: adds the access token and per-tab session id
 client/components/VoiceBar.tsx           mic button, status line, settings drawer
+client/demo/runDemoLesson.ts             `?demo` replay of a scripted load-balancer lesson
 client/boards/BoardStore.ts              named boards and folders, per-board persistence keys
 client/components/BoardsDrawer.tsx       the boards drawer (create, rename, move, delete)
 client/components/UsageMeter.tsx         tokens and cost meter
