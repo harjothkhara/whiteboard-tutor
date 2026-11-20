@@ -8,7 +8,7 @@ Thanks for taking a look. This is a small project and easy to get into.
 git clone https://github.com/harjothkhara/whiteboard-tutor
 cd whiteboard-tutor
 npm install
-cp .dev.vars.example .dev.vars   # add at least one model key
+cp .dev.vars.example .dev.vars   # add OPENAI_API_KEY (voice) plus a model key, e.g. ANTHROPIC_API_KEY
 npm run dev
 ```
 

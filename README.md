@@ -15,6 +15,8 @@ Two API keys, both in a `.dev.vars` file at the project root:
 | `OPENAI_API_KEY` | The tutor's voice (`gpt-4o-mini-tts`). Required. Also unlocks the `gpt-5.6-*` models. |
 | `ANTHROPIC_API_KEY` | The default model, `claude-opus-5`. Swap for `GOOGLE_API_KEY` if you prefer Gemini. |
 
+Node.js 22 (the version CI builds with) and npm.
+
 A browser with built-in speech recognition: Chrome, Edge or Safari. Firefox works if you switch the ears to OpenAI in the settings drawer.
 
 ## Run it
